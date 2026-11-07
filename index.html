@@ -533,65 +533,6 @@
     .picker-cell.selected { background: var(--primary-color); color: #fff; font-weight: bold; }
     .picker-cell.other-month { color: #c7c7cc; background: #fff; }
 
-    /* 放大月曆時，控制列固定在可視區頂端，還原鈕不會隨月曆內容滑走。 */
-    .calendar-expanded-active .cal-controls {
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 6px;
-      align-items: center;
-      padding: 8px 0 10px;
-      margin: -8px 0 10px;
-      background: var(--bg-color);
-    }
-
-    .calendar-expanded-active #cal-month-title {
-      flex: 1 1 auto;
-      min-width: 0;
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    .calendar-expanded-active #rotate-btn {
-      flex: 0 0 auto;
-      position: sticky;
-      right: 0;
-      z-index: 1001;
-      white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.16);
-    }
-
-    /* 放大時將還原鈕移到 body，避免受月曆容器與捲動影響。 */
-    .calendar-restore-floating {
-      /* 與右下角「新增」按鈕使用相同的 fixed 定位基準 */
-      position: fixed !important;
-      top: auto !important;
-      right: 24px !important;
-      bottom: 24px !important;
-      left: auto !important;
-      z-index: 600 !important;
-      min-height: 44px;
-      padding: 10px 16px !important;
-      white-space: nowrap !important;
-      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.28);
-    }
-
-    .calendar-expanded-active {
-      position: fixed !important;
-      inset: 0 !important;
-      width: 100% !important;
-      height: 100dvh !important;
-      margin: 0 !important;
-      padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)) !important;
-      border-radius: 0 !important;
-      overflow-y: auto !important;
-      z-index: 500;
-      background: var(--bg-color);
-      transform: none !important;
-    }
-
     .rotate-90-active {
       transform: rotate(90deg);
       transform-origin: top left;
@@ -760,7 +701,7 @@
       <button type="button" class="btn" id="cal-prev">‹</button>
       <span id="cal-month-title" style="font-weight:bold;"></span>
       <button type="button" class="btn" id="cal-next">›</button>
-      <button type="button" class="btn" id="rotate-btn">⛶ 放大月曆</button>
+      <button type="button" class="btn" id="rotate-btn">📱 轉 90°</button>
     </div>
     <div class="cal-grid" id="cal-header-grid"></div>
     <div class="cal-grid" id="cal-body-grid"></div>
@@ -1611,30 +1552,7 @@
       });
     }
 
-    // 放大時把還原鈕移出月曆容器，固定在視窗右下角，不受月曆捲動與排版影響。
-    const calendarRestoreButton = document.getElementById('rotate-btn');
-    let calendarRestorePlaceholder = null;
-    calendarRestoreButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      const expanded = !calendarContainer.classList.contains('calendar-expanded-active');
-      if (expanded) {
-        calendarContainer.classList.add('calendar-expanded-active');
-        calendarRestorePlaceholder = document.createComment('calendar restore button position');
-        calendarRestoreButton.parentNode.insertBefore(calendarRestorePlaceholder, calendarRestoreButton);
-        document.body.appendChild(calendarRestoreButton);
-        calendarRestoreButton.classList.add('calendar-restore-floating');
-        calendarRestoreButton.innerText = '縮小月曆';
-      } else {
-        calendarContainer.classList.remove('calendar-expanded-active');
-        calendarRestoreButton.classList.remove('calendar-restore-floating');
-        if (calendarRestorePlaceholder && calendarRestorePlaceholder.parentNode) {
-          calendarRestorePlaceholder.parentNode.insertBefore(calendarRestoreButton, calendarRestorePlaceholder);
-          calendarRestorePlaceholder.remove();
-        }
-        calendarRestorePlaceholder = null;
-        calendarRestoreButton.innerText = '⛶ 放大月曆';
-      }
-    });
+    setupRotateButton('rotate-btn', calendarContainer);
     setupRotateButton('timeline-rotate-btn', timelineView);
 
     const overlay = document.getElementById('modal-overlay');
