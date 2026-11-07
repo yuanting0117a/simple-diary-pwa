@@ -1943,6 +1943,22 @@
           document.querySelectorAll(`.item-chk[data-date="${d}"]`).forEach(iChk => {
             iChk.checked = evt.target.checked;
           });
+          evt.target.indeterminate = false;
+        });
+      });
+
+      // 單筆勾選狀態變動時，同步更新日期群組的全選／部分選取狀態。
+      document.querySelectorAll('.item-chk').forEach(iChk => {
+        iChk.addEventListener('change', () => {
+          const d = iChk.getAttribute('data-date');
+          const groupChk = Array.from(document.querySelectorAll('.group-chk'))
+            .find(gChk => gChk.getAttribute('data-date') === d);
+          if (!groupChk) return;
+          const items = Array.from(document.querySelectorAll('.item-chk'))
+            .filter(chk => chk.getAttribute('data-date') === d);
+          const checkedCount = items.filter(chk => chk.checked).length;
+          groupChk.checked = items.length > 0 && checkedCount === items.length;
+          groupChk.indeterminate = checkedCount > 0 && checkedCount < items.length;
         });
       });
     });
