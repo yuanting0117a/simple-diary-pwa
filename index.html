@@ -597,6 +597,7 @@
     }
 
     .picker-cell:hover { background: #e5e5ea; }
+    .picker-cell.today-date { border: 1.5px solid var(--danger-color); }
     .picker-cell.selected { background: var(--primary-color); color: #fff; font-weight: bold; }
     .picker-cell.other-month { color: #c7c7cc; background: #fff; }
 
@@ -960,6 +961,11 @@
         cell.className = 'picker-cell';
         const mmdd = String(month + 1).padStart(2, '0') + String(day).padStart(2, '0');
         cell.innerText = day;
+
+        const today = new Date();
+        if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
+          cell.classList.add('today-date');
+        }
 
         if (pickerSelectedDates.includes(mmdd)) {
           cell.classList.add('selected');
