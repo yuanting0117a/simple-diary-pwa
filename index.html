@@ -1917,49 +1917,54 @@
       });
 
       Object.keys(groupMap).forEach(dateKey => {
-        const groupHeader = document.createElement('label');
-        groupHeader.style.display = 'block';
-        groupHeader.style.fontWeight = 'bold';
-        groupHeader.style.marginTop = '6px';
-        groupHeader.style.fontSize = '0.85rem';
-        groupHeader.innerHTML = `<input type="checkbox" class="group-chk" data-date="${dateKey}"> 📅 ${dateKey === '待辦' ? '📌 待辦事項區' : dateKey}`;
+        const groupHeader = document.createElement('div');
+        groupHeader.style.cssText = 'display:flex;align-items:center;font-weight:bold;margin-top:6px;font-size:0.85rem;';
+        const groupCheck = document.createElement('input');
+        groupCheck.type = 'checkbox';
+        groupCheck.className = 'group-chk';
+        groupCheck.dataset.date = dateKey;
+        const groupText = document.createElement('span');
+        groupText.textContent = ` 📅 ${dateKey === '待辦' ? '📌 待辦事項區' : dateKey}`;
+        groupHeader.append(groupCheck, groupText);
         list.appendChild(groupHeader);
 
         groupMap[dateKey].forEach(item => {
-          const lbl = document.createElement('label');
-          lbl.style.display = 'block';
-          lbl.style.marginLeft = '16px';
-          lbl.style.fontSize = '0.85rem';
-          lbl.style.color = '#333';
-          const em = item.emoji || userDefaultEmoji;
-          lbl.innerHTML = `<input type="checkbox" class="item-chk" data-id="${item.id}" data-date="${dateKey}"> ${em} ${item.text}`;
-          list.appendChild(lbl);
+          const itemRow = document.createElement('div');
+          itemRow.style.cssText = 'display:flex;align-items:center;margin-left:16px;font-size:0.85rem;color:#333;';
+          const itemCheck = document.createElement('input');
+          itemCheck.type = 'checkbox';
+          itemCheck.className = 'item-chk';
+          itemCheck.dataset.id = item.id;
+          itemCheck.dataset.date = dateKey;
+          const itemText = document.createElement('span');
+          itemText.textContent = ` ${item.emoji || userDefaultEmoji} ${item.text}`;
+          itemRow.append(itemCheck, itemText);
+          list.appendChild(itemRow);
         });
       });
 
-      document.querySelectorAll('.group-chk').forEach(gChk => {
-        gChk.addEventListener('change', (evt) => {
-          const d = evt.target.getAttribute('data-date');
-          document.querySelectorAll(`.item-chk[data-date="${d}"]`).forEach(iChk => {
-            iChk.checked = evt.target.checked;
+      // 使用事件委派統一同步；只要不是全部勾選，群組框就明確取消勾選。
+      list.addEventListener('change', (evt) => {
+        const target = evt.target;
+        if (target.classList.contains('group-chk')) {
+          const d = target.dataset.date;
+          list.querySelectorAll('.item-chk').forEach(itemCheck => {
+            if (itemCheck.dataset.date === d) itemCheck.checked = target.checked;
           });
-          evt.target.indeterminate = false;
-        });
-      });
+          target.checked = target.checked;
+          return;
+        }
 
-      // 單筆勾選狀態變動時，同步更新日期群組的全選／部分選取狀態。
-      document.querySelectorAll('.item-chk').forEach(iChk => {
-        iChk.addEventListener('change', () => {
-          const d = iChk.getAttribute('data-date');
-          const groupChk = Array.from(document.querySelectorAll('.group-chk'))
-            .find(gChk => gChk.getAttribute('data-date') === d);
-          if (!groupChk) return;
-          const items = Array.from(document.querySelectorAll('.item-chk'))
-            .filter(chk => chk.getAttribute('data-date') === d);
-          const checkedCount = items.filter(chk => chk.checked).length;
-          groupChk.checked = items.length > 0 && checkedCount === items.length;
-          groupChk.indeterminate = checkedCount > 0 && checkedCount < items.length;
-        });
+        if (target.classList.contains('item-chk')) {
+          const d = target.dataset.date;
+          const groupCheck = Array.from(list.querySelectorAll('.group-chk'))
+            .find(check => check.dataset.date === d);
+          if (!groupCheck) return;
+          const items = Array.from(list.querySelectorAll('.item-chk'))
+            .filter(check => check.dataset.date === d);
+          groupCheck.indeterminate = false;
+          groupCheck.checked = items.length > 0 && items.every(check => check.checked);
+        }
       });
     });
 
