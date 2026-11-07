@@ -741,7 +741,7 @@
     </div>
   </div>
 
-<div class="modal-overlay" id="timeline-export-overlay"><div class="modal" style="max-width:440px;"><div class="modal-title">🖼️ 匯出時間軸圖片</div><div style="font-size:.85rem;margin-bottom:10px;">選擇開始與結束日期，將範圍內的日期和所有事項排成同一張長圖。</div><label for="timeline-export-start">開始日期</label><input type="date" id="timeline-export-start" style="width:100%;margin:5px 0 10px;"><label for="timeline-export-end">結束日期</label><input type="date" id="timeline-export-end" style="width:100%;margin:5px 0 10px;"><div style="font-size:.72rem;color:var(--text-sub);line-height:1.5;margin-bottom:10px;">目前記事只記錄月日、不記錄年份；選擇的年份用於排列日期，記事會依月日套用到所選年份。最多可匯出 366 天。</div><div style="display:flex;gap:8px;"><button type="button" class="btn btn-primary" id="download-timeline-image" style="flex:1;">產生 PNG 長圖</button><button type="button" class="btn" id="cancel-timeline-export" style="flex:1;">取消</button></div></div></div>
+<div class="modal-overlay" id="timeline-export-overlay"><div class="modal" style="max-width:440px;"><div class="modal-title">🖼️ 匯出時間軸圖片</div><div style="font-size:.82rem;margin-bottom:8px;">點選有框線的日期可快速定位有記事的日子。先點開始日，再點結束日。</div><div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0;"><button type="button" class="btn" id="timeline-export-prev">‹</button><strong id="timeline-export-month"></strong><button type="button" class="btn" id="timeline-export-next">›</button></div><div class="picker-grid" id="timeline-export-weekdays"><div class="cal-day-head">一</div><div class="cal-day-head">二</div><div class="cal-day-head">三</div><div class="cal-day-head">四</div><div class="cal-day-head">五</div><div class="cal-day-head">六</div><div class="cal-day-head">日</div></div><div class="picker-grid" id="timeline-export-calendar"></div><div style="font-size:.78rem;margin:10px 0;color:var(--text-sub);"><span style="display:inline-block;width:13px;height:13px;border:2px solid #1684e8;border-radius:4px;vertical-align:-2px;"></span> 有記事　<span style="display:inline-block;width:13px;height:13px;background:#dceeff;border:1px solid #1684e8;border-radius:4px;vertical-align:-2px;"></span> 已選範圍</div><div id="timeline-export-range" style="font-size:.82rem;background:#f7f7f9;padding:8px;border-radius:8px;margin-bottom:8px;">尚未選擇日期</div><input type="hidden" id="timeline-export-start"><input type="hidden" id="timeline-export-end"><div style="font-size:.72rem;color:var(--text-sub);line-height:1.5;margin-bottom:10px;">記事只記錄月日、不記錄年份；最多可匯出 366 天。</div><div style="display:flex;gap:8px;"><button type="button" class="btn btn-primary" id="download-timeline-image" style="flex:1;">產生 PNG 長圖</button><button type="button" class="btn" id="cancel-timeline-export" style="flex:1;">取消</button></div></div></div>
   <div id="calendar-container" style="display: none;">
     <div class="cal-controls">
       <button type="button" class="btn" id="cal-prev">‹</button>
@@ -1624,12 +1624,52 @@
     const timelineExportStart = document.getElementById('timeline-export-start');
     const timelineExportEnd = document.getElementById('timeline-export-end');
     const dateInputValue = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    let timelinePickerMonth = new Date(timelineDate.getFullYear(), timelineDate.getMonth(), 1);
+    let timelinePickerStart = null, timelinePickerEnd = null;
+    function timelinePickerHasItems(date) {
+      const md = String(date.getMonth()+1).padStart(2,'0') + String(date.getDate()).padStart(2,'0');
+      return getExpandedItems().some(item => {
+        if (!item.date) return false;
+        const a = item.date, b = item.endDate || a;
+        return item.taskType === 'pick-one' ? md === b : md >= a && md <= b;
+      });
+    }
+    function renderTimelineExportCalendar() {
+      const y=timelinePickerMonth.getFullYear(),m=timelinePickerMonth.getMonth();
+      document.getElementById('timeline-export-month').textContent=y+'年 '+(m+1)+'月';
+      const grid=document.getElementById('timeline-export-calendar'); grid.innerHTML='';
+      const offset=(new Date(y,m,1).getDay()+6)%7, days=new Date(y,m+1,0).getDate();
+      for(let i=0;i<offset;i++){const blank=document.createElement('div');grid.appendChild(blank);}
+      for(let day=1;day<=days;day++){
+        const d=new Date(y,m,day), key=dateInputValue(d), cell=document.createElement('button');
+        cell.type='button'; cell.className='picker-cell'; cell.textContent=day;
+        const occupied=timelinePickerHasItems(d), selected=timelinePickerStart&&d>=timelinePickerStart&&timelinePickerEnd&&d<=timelinePickerEnd;
+        cell.style.cssText='border:1px solid '+(occupied?'#1684e8':'transparent')+';'+(occupied?'font-weight:700;':'')+(selected?'background:#dceeff;color:#075ca8;':'')+'min-height:38px;padding:8px 0;';
+        if(occupied) cell.title='這天有記事';
+        cell.addEventListener('click',()=>{
+          if(!timelinePickerStart||timelinePickerEnd){timelinePickerStart=d;timelinePickerEnd=null;}
+          else if(d<timelinePickerStart){timelinePickerStart=d;timelinePickerEnd=null;}
+          else timelinePickerEnd=d;
+          timelineExportStart.value=dateInputValue(timelinePickerStart);
+          timelineExportEnd.value=timelinePickerEnd?dateInputValue(timelinePickerEnd):'';
+          document.getElementById('timeline-export-range').textContent=timelinePickerEnd
+            ? '匯出範圍：'+timelineExportStart.value+' ～ '+timelineExportEnd.value
+            : '開始日期：'+timelineExportStart.value+'（再點一次選擇結束日期）';
+          renderTimelineExportCalendar();
+        });
+        grid.appendChild(cell);
+      }
+    }
     document.getElementById('open-timeline-export').addEventListener('click',()=>{
-      const s=new Date(timelineDate.getFullYear(),timelineDate.getMonth(),1);
-      timelineExportStart.value=dateInputValue(s);
-      timelineExportEnd.value=dateInputValue(new Date(s.getFullYear(),s.getMonth()+1,0));
+      timelinePickerMonth=new Date(timelineDate.getFullYear(),timelineDate.getMonth(),1);
+      timelinePickerStart=null;timelinePickerEnd=null;
+      timelineExportStart.value='';timelineExportEnd.value='';
+      document.getElementById('timeline-export-range').textContent='尚未選擇日期';
+      renderTimelineExportCalendar();
       timelineExportOverlay.classList.add('show');
     });
+    document.getElementById('timeline-export-prev').addEventListener('click',()=>{timelinePickerMonth.setMonth(timelinePickerMonth.getMonth()-1);renderTimelineExportCalendar();});
+    document.getElementById('timeline-export-next').addEventListener('click',()=>{timelinePickerMonth.setMonth(timelinePickerMonth.getMonth()+1);renderTimelineExportCalendar();});
     document.getElementById('cancel-timeline-export').addEventListener('click',()=>timelineExportOverlay.classList.remove('show'));
     document.getElementById('download-timeline-image').addEventListener('click',()=>{
       if(!timelineExportStart.value||!timelineExportEnd.value){alert('請先選擇日期範圍。');return;}
