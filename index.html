@@ -977,7 +977,6 @@
       repeatSubBox.style.display = 'none';
       toggleRepeatBtn.classList.remove('btn-primary');
       toggleRepeatBtn.innerText = '🔁 設定每週重複 (預設顯示 1 個月)';
-      chkAutoReview.checked = false;
       renderModalEmojiPicker();
       inputModalOverlay.classList.add('show');
     });
@@ -1115,7 +1114,6 @@
             item.endDate = endDate; item.endTime = et; item.text = txt;
             item.repeat = repeatOpt; item.taskType = selectedTaskMode;
             item.groupId = groupId;
-            item.autoReview = chkAutoReview.checked;
           }
         } else {
           db.push({
