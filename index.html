@@ -520,6 +520,20 @@
     .picker-cell.selected { background: var(--primary-color); color: #fff; font-weight: bold; }
     .picker-cell.other-month { color: #c7c7cc; background: #fff; }
 
+    .calendar-expanded-active {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100dvh !important;
+      margin: 0 !important;
+      padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)) !important;
+      border-radius: 0 !important;
+      overflow-y: auto !important;
+      z-index: 500;
+      background: var(--bg-color);
+      transform: none !important;
+    }
+
     .rotate-90-active {
       transform: rotate(90deg);
       transform-origin: top left;
@@ -688,7 +702,7 @@
       <button type="button" class="btn" id="cal-prev">‹</button>
       <span id="cal-month-title" style="font-weight:bold;"></span>
       <button type="button" class="btn" id="cal-next">›</button>
-      <button type="button" class="btn" id="rotate-btn">📱 轉 90°</button>
+      <button type="button" class="btn" id="rotate-btn">⛶ 放大月曆</button>
     </div>
     <div class="cal-grid" id="cal-header-grid"></div>
     <div class="cal-grid" id="cal-body-grid"></div>
@@ -1537,7 +1551,12 @@
       });
     }
 
-    setupRotateButton('rotate-btn', calendarContainer);
+    // 月曆改為直向全螢幕放大，不再旋轉內容，避免手機畫面文字側倒。
+    document.getElementById('rotate-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      const expanded = calendarContainer.classList.toggle('calendar-expanded-active');
+      document.getElementById('rotate-btn').innerText = expanded ? '縮小月曆' : '⛶ 放大月曆';
+    });
     setupRotateButton('timeline-rotate-btn', timelineView);
 
     const overlay = document.getElementById('modal-overlay');
