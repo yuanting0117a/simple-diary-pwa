@@ -533,6 +533,36 @@
     .picker-cell.selected { background: var(--primary-color); color: #fff; font-weight: bold; }
     .picker-cell.other-month { color: #c7c7cc; background: #fff; }
 
+    /* 放大月曆時，控制列固定在可視區頂端，還原鈕不會隨月曆內容滑走。 */
+    .calendar-expanded-active .cal-controls {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+      align-items: center;
+      padding: 8px 0 10px;
+      margin: -8px 0 10px;
+      background: var(--bg-color);
+    }
+
+    .calendar-expanded-active #cal-month-title {
+      flex: 1 1 auto;
+      min-width: 0;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .calendar-expanded-active #rotate-btn {
+      flex: 0 0 auto;
+      position: sticky;
+      right: 0;
+      z-index: 1001;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.16);
+    }
+
     .calendar-expanded-active {
       position: fixed !important;
       inset: 0 !important;
