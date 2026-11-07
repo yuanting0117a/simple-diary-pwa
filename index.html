@@ -406,6 +406,32 @@
       }
     }
 
+    /* 時間軸旋轉時，月份列保留在上方，圖表高度依旋轉後的短邊計算，
+       避免沿用直向螢幕的 vh 高度而被外層裁切。 */
+    #timeline-view.rotate-90-active {
+      overflow: hidden !important;
+      padding: 8px !important;
+    }
+
+    #timeline-view.rotate-90-active #gantt-wrapper {
+      height: calc(100vw - 90px) !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      margin: 8px 0 0 !important;
+      width: 100% !important;
+    }
+
+    #timeline-view.rotate-90-active #timeline-month-label {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    #timeline-view.rotate-90-active #timeline-rotate-btn,
+    #timeline-view.rotate-90-active #timeline-prev-m,
+    #timeline-view.rotate-90-active #timeline-next-m {
+      flex-shrink: 0;
+    }
+
     .today-line {
       position: absolute;
       top: 0; bottom: 0;
