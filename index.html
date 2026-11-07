@@ -344,15 +344,23 @@
       border-radius: 12px;
       padding: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      overflow-x: auto;
+      height: min(62vh, 560px);
+      min-height: 260px;
+      overflow: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
       position: relative;
+      isolation: isolate;
     }
 
     .gantt-header-row {
       display: flex;
       border-bottom: 1px solid var(--border-color);
       padding-bottom: 6px;
-      position: relative;
+      position: sticky;
+      top: -12px;
+      z-index: 20;
+      background: var(--card-bg);
     }
 
     .gantt-day-col {
@@ -381,6 +389,21 @@
       position: relative;
       padding-top: 10px;
       min-height: 200px;
+      width: max-content;
+    }
+
+    #gantt-header, #gantt-body {
+      min-width: max-content;
+    }
+
+    @media (max-width: 600px) {
+      .gantt-wrapper {
+        height: 58vh;
+        min-height: 280px;
+        margin-left: 10px;
+        margin-right: 10px;
+        padding: 10px;
+      }
     }
 
     .today-line {
@@ -667,6 +690,8 @@
         <input type="file" id="import-backup-file" accept="application/json,.json" style="display:none;">
       </div>
       <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">支援 JSON 備份轉移；匯入時可選擇合併或取代，建議優先使用合併。</div>
+      <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">月曆匯出：</div>
+      <button type="button" class="btn btn-primary" id="open-calendar-export" style="width:100%; margin-bottom:8px;">🖼️ 匯出月曆照片</button>
       <div class="input-btns" style="margin-top:14px;">
         <button type="button" class="btn btn-primary" id="save-settings-btn" style="flex:1;">儲存設定</button>
         <button type="button" class="btn" id="close-settings-btn" style="flex:1;">關閉</button>
@@ -702,9 +727,6 @@
       <span id="cal-month-title" style="font-weight:bold;"></span>
       <button type="button" class="btn" id="cal-next">›</button>
       <button type="button" class="btn" id="rotate-btn">📱 轉 90°</button>
-    </div>
-    <div style="margin: 0 16px 10px 16px;">
-      <button type="button" class="btn btn-primary" id="open-calendar-export">🖼️ 匯出月曆照片</button>
     </div>
     <div class="cal-grid" id="cal-header-grid"></div>
     <div class="cal-grid" id="cal-body-grid"></div>
