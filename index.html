@@ -446,7 +446,7 @@
 
     .gantt-bar-item {
       position: absolute;
-      height: 32px;
+      height: 22.4px;
       background: #eef6ff;
       border: 1px solid #b3d7ff;
       border-radius: 6px;
@@ -1523,7 +1523,7 @@
           const barWidth = (spanDays * colWidth) - 8;
 
           const rowIndex = rowMap[item.text];
-          const topOffset = 10 + (rowIndex * 40);
+          const topOffset = 10 + (rowIndex * 28);
 
           const bar = document.createElement('div');
           bar.className = `gantt-bar-item ${item.completed ? 'completed' : ''}`;
@@ -1546,7 +1546,7 @@
           ganttBody.appendChild(bar);
         });
 
-        ganttBody.style.height = `${10 + (nextRowIndex * 40) + 20}px`;
+        ganttBody.style.height = `${10 + (nextRowIndex * 28) + 16}px`;
       }
     }
 
