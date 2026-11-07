@@ -565,16 +565,17 @@
 
     /* 放大時將還原鈕移到 body，避免受月曆容器與捲動影響。 */
     .calendar-restore-floating {
+      /* 與右下角「新增」按鈕使用相同的 fixed 定位基準 */
       position: fixed !important;
       top: auto !important;
-      right: 16px !important;
-      bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+      right: 24px !important;
+      bottom: 24px !important;
       left: auto !important;
-      z-index: 2000 !important;
+      z-index: 600 !important;
       min-height: 44px;
       padding: 10px 16px !important;
       white-space: nowrap !important;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.22);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.28);
     }
 
     .calendar-expanded-active {
