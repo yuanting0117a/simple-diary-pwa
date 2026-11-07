@@ -992,33 +992,48 @@
       const et = inEndTime.value.trim();
       const txt = inText.value.trim();
 
-      if (!txt || !d) {
+      if (!txt) {
+        errMsg.innerText = '請輸入事項內容';
         errMsg.style.display = 'block';
         return;
       }
       errMsg.style.display = 'none';
+      errMsg.innerText = '請至少選擇一個日期';
 
-      const datesArray = d.split(',').map(x => x.trim());
+      // 日期可以留白；留白時會存成未排定日期的待辦事項
+      const datesArray = d ? d.split(',').map(x => x.trim()) : [''];
+      const effectiveTaskMode = d ? selectedTaskMode : 'fixed-multi';
 
-      const repeatOpt = isRepeatEnabled ? {
-        mode: selectedTaskMode,
+      const repeatOpt = (d && isRepeatEnabled) ? {
+        mode: effectiveTaskMode,
         type: document.querySelector('input[name="repeat-end"]:checked').value,
         count: parseInt(document.getElementById('repeat-count-input').value, 10) || 4,
         untilDate: document.getElementById('repeat-until-input').value.trim()
       } : null;
 
-      const groupId = selectedTaskMode === 'pick-one' ? `group_${Date.now()}` : null;
+      const groupId = effectiveTaskMode === 'pick-one' ? `group_${Date.now()}` : null;
 
-      if (selectedTaskMode === 'fixed-multi') {
-        datesArray.forEach((singleD, idx) => {
-          db.push({
-            id: Date.now() + idx,            emoji: em, date: singleD, time: t,
-            endDate: '', endTime: et, text: txt,
-            completed: false, repeat: repeatOpt,
-            taskType: 'fixed-multi', groupId: null,
-            autoReview: chkAutoReview.checked
+      if (effectiveTaskMode === 'fixed-multi') {
+        if (editingItemId) {
+          const item = db.find(x => x.id === editingItemId);
+          if (item) {
+            item.emoji = em; item.date = datesArray[0] || ''; item.time = t;
+            item.endDate = ''; item.endTime = et; item.text = txt;
+            item.completed = item.completed || false; item.repeat = repeatOpt;
+            item.taskType = 'fixed-multi'; item.groupId = null;
+            item.autoReview = chkAutoReview.checked;
+          }
+        } else {
+          datesArray.forEach((singleD, idx) => {
+            db.push({
+              id: Date.now() + idx, emoji: em, date: singleD, time: t,
+              endDate: '', endTime: et, text: txt,
+              completed: false, repeat: repeatOpt,
+              taskType: 'fixed-multi', groupId: null,
+              autoReview: chkAutoReview.checked
+            });
           });
-        });
+        }
       } else {
         const startDate = datesArray[0];
         const endDate = datesArray[datesArray.length - 1];
