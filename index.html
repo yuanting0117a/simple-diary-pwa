@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7f9">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="簡潔記事">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/icon.svg">
+  <title>簡潔記事</title>
+  <style>
+    :root {
+      --bg-color: #f7f7f9;
+      --card-bg: #ffffff;
+      --text-main: #1d1d1f;
+      --text-sub: #8e8e93;
+      --border-color: #e5e5ea;
+      --primary-color: #007aff;
+      --danger-color: #ff3b30;
+      --completed-color: #a2a2a7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(247, 247, 249, 0.9);
+      backdrop-filter: blur(10px);
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .app-title { font-size: 1.2rem; font-weight: 700; }
+    .header-actions { display: flex; gap: 6px; }
+
+    .btn {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary { background: var(--primary-color); color: #fff; border: none; }
+    .btn-danger { background: var(--danger-color); color: #fff; border: none; }
+    .btn-active { background: #e5e5ea; }
+
+    .view-switch {
+      display: flex;
+      background: #e3e3e8;
+      padding: 2px;
+      border-radius: 8px;
+    }
+
+    .view-btn {
+      flex: 1;
+      text-align: center;
+      padding: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .view-btn.active {
+      background: var(--card-bg);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .fab-btn {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary-color);
+      color: #fff;
+      font-size: 2rem;
+      font-weight: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+      border: none;
+      cursor: pointer;
+      z-index: 99;
+      line-height: 1;
+      padding-bottom: 4px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 14px;
+      width: 90%;
+      max-width: 350px;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-title { font-weight: bold; font-size: 1rem; margin-bottom: 12px; text-align: center; }
+
+    .input-row { display: flex; gap: 6px; margin-bottom: 8px; width: 100%; align-items: center; }
+
+    input[type="text"], input[type="number"] {
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      background: #fafafa;
+    }
+
+    .input-emoji { width: 50px; text-align: center; font-size: 1.1rem; }
+    .date-picker-btn {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      background: #fafafa;
+      text-align: left;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+    .input-time { width: 80px; text-align: center; }
+    .input-text { width: 100%; margin-bottom: 8px; }
+
+    .input-btns { display: flex; gap: 8px; margin-top: 12px; }
+
+    .error-msg {
+      color: var(--danger-color);
+      font-size: 0.75rem;
+      font-weight: bold;
+      margin-bottom: 6px;
+      text-align: center;
+      display: none;
+    }
+
+    .emoji-picker-container {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 4px 0 8px 0;
+      max-height: 80px;
+      overflow-y: auto;
+      padding: 4px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .emoji-chip {
+      font-size: 1.1rem;
+      padding: 3px 6px;
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .emoji-chip.deletable .del-tag {
+      font-size: 0.65rem;
+      color: var(--danger-color);
+      margin-left: 4px;
+      font-weight: bold;
+    }
+
+    .action-panel {
+      margin: 8px 0;
+      padding: 8px;
+      background: #f0f0f5;
+      border-radius: 8px;
+      font-size: 0.82rem;
+    }
+
+    .mode-select-box {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .mode-chip {
+      flex: 1;
+      text-align: center;
+      padding: 6px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid var(--border-color);
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    .mode-chip.active {
+      background: var(--primary-color);
+      color: #fff;
+      border-color: var(--primary-color);
+    }
+
+    .sub-settings {
+      margin-top: 6px;
+      padding-left: 12px;
+      border-left: 2px solid var(--primary-color);
+    }
+
+    .section-box {
+      margin: 12px 16px 8px 16px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .section-header {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+      border-bottom: 1px dashed var(--border-color);
+      padding-bottom: 4px;
+    }
+
+    .item-list { list-style: none; }
+
+    .item-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f5;
+    }
+
+    .item-row:last-child { border-bottom: none; }
+
+    .item-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .item-emoji { font-size: 1.1rem; }
+
+    .item-text.completed {
+      text-decoration: line-through;
+      color: var(--completed-color);
+    }
+
+    .item-time {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      background: #f0f0f5;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .action-btns { display: none; gap: 4px; }
+    .editing .action-btns { display: flex; }
+
+    .edit-item-btn {
+      color: var(--primary-color);
+      border: none;
+      background: none;
+      font-size: 1rem;
+      padding: 0 4px;
+      cursor: pointer;
+    }
+
+    .del-btn {
+      color: var(--danger-color);
+      border: none;
+      background: none;
+      font-size: 1.1rem;
+      padding: 0 4px;
+      cursor: pointer;
+    }
+
+    .week-divider { margin: 16px 16px 8px 16px; height: 1px; background: #d1d1d6; }
+
+    .date-card {
+      margin: 0 16px 8px 16px;
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    }
+
+    .date-card.today { border: 1.5px solid var(--primary-color); }
+
+    .date-header {
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+    }
+
+    .gantt-wrapper {
+      margin: 12px 16px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .gantt-header-row {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+      position: relative;
+    }
+
+    .gantt-day-col {
+      width: 45px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      flex-shrink: 0;
+    }
+
+    .gantt-day-col.today-head { color: var(--danger-color); font-weight: bold; }
+
+    .today-marker-badge {
+      background: var(--danger-color);
+      color: #fff;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+    }
+
+    .gantt-body {
+      position: relative;
+      padding-top: 10px;
+      min-height: 200px;
+    }
+
+    .today-line {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: var(--danger-color);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .today-line::before {
+      content: '';
+      position: absolute;
+      top: -4px; left: -3px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--danger-color);
+    }
+
+    .gantt-bar-item {
+      position: absolute;
+      height: 32px;
+      background: #eef6ff;
+      border: 1px solid #b3d7ff;
+      border-radius: 6px;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--primary-color);
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 5;
+    }
+
+    .gantt-bar-item.completed {
+      text-decoration: line-through;
+      opacity: 0.55;
+      background: #e5e5ea;
+      border-color: #c7c7cc;
+      color: #8e8e93;
+    }
+
+    #calendar-container {
+      margin: 0 16px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .cal-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+
+    .cal-day-head {
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: var(--text-sub);
+      padding: 4px 0;
+    }
+
+    .cal-cell {
+      min-height: 60px;
+      border: 1px solid #f0f0f5;
+      border-radius: 6px;
+      padding: 4px;
+      font-size: 0.75rem;
+      text-align: left;
+      background: #fff;
+      overflow: visible;
+    }
+
+    .cal-cell-date {
+      font-weight: bold;
+      margin-bottom: 4px;
+      font-size: 0.75rem;
+      color: var(--text-main);
+    }
+
+    .cal-item {
+      background: #eef6ff;
+      color: var(--primary-color);
+      border-radius: 3px;
+      padding: 2px 4px;
+      margin-bottom: 3px;
+      font-size: 0.7rem;
+      word-break: break-all;
+      white-space: normal;
+      line-height: 1.2;
+    }
+
+    .cal-item.completed {
+      text-decoration: line-through;
+      color: var(--completed-color);
+      background: #f0f0f5;
+    }
+
+    .picker-modal {
+      background: #fff;
+      border-radius: 14px;
+      width: 90%;
+      max-width: 320px;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .picker-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    .picker-cell {
+      padding: 8px 0;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #f7f7f9;
+    }
+
+    .picker-cell:hover { background: #e5e5ea; }
+    .picker-cell.selected { background: var(--primary-color); color: #fff; font-weight: bold; }
+    .picker-cell.other-month { color: #c7c7cc; background: #fff; }
+
+    .rotate-90-active {
+      transform: rotate(90deg);
+      transform-origin: top left;
+      position: fixed !important;
+      top: 0; left: 100vw;
+      width: 100vh !important;
+      height: 100vw !important;
+      z-index: 500;
+      overflow-y: auto !important;
+      background: #f7f7f9;
+      padding: 16px;
+    }
+
+    .select-list {
+      max-height: 180px;
+      overflow-y: auto;
+      margin: 10px 0;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <header id="app-header">
+    <div class="header-top">
+      <div class="app-title">簡潔記事</div>
+      <div class="header-actions">
+        <button type="button" class="btn" id="clean-btn">刪除完成</button>
+        <button type="button" class="btn" id="edit-btn">編輯</button>
+        <button type="button" class="btn" id="settings-btn">⚙️ 設定</button>
+      </div>
+    </div>
+    <div class="view-switch">
+      <div class="view-btn active" id="tab-list">條列視圖</div>
+      <div class="view-btn" id="tab-cal">月曆視圖</div>
+      <div class="view-btn" id="tab-timeline">時間軸</div>
+    </div>
+  </header>
+
+  <button type="button" class="fab-btn" id="open-input-modal">＋</button>
+
+  <div class="modal-overlay" id="input-modal-overlay">
+    <div class="modal">
+      <div class="modal-title" id="input-modal-title">新增事項</div>
+      <div class="error-msg" id="err-msg">請至少選擇一個日期</div>
+      
+      <div style="font-size:0.75rem; color:var(--text-sub); margin-bottom:2px;">選擇日期：</div>
+      <div class="input-row">
+        <input type="text" id="in-emoji" class="input-emoji" placeholder="📌" maxlength="2">
+        <button type="button" id="btn-pick-date" class="date-picker-btn">點選月曆選擇日期</button>
+      </div>
+
+      <div class="input-row">
+        <input type="text" id="in-time" class="input-time" placeholder="開始 HHMM" maxlength="4">
+        <input type="text" id="in-end-time" class="input-time" placeholder="結束 HHMM" maxlength="4">
+      </div>
+      
+      <div style="font-size:0.75rem; color:var(--text-sub); margin-bottom:4px;">點選快速帶入 Emoji：</div>
+      <div class="emoji-picker-container" id="modal-emoji-picker"></div>
+
+      <input type="text" id="in-text" class="input-text" placeholder="thing (輸入事項內容)...">
+      
+      <div class="action-panel">
+        <div style="font-size:0.75rem; color:var(--text-sub); margin-bottom:4px;">模式選擇：</div>
+        <div class="mode-select-box">
+          <button type="button" class="mode-chip active" id="mode-multi">每天各自獨立 (預設)</button>
+          <button type="button" class="mode-chip" id="mode-pickone">多天一次 (區間)</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+          <button type="button" class="btn" id="toggle-repeat-btn" style="width:100%;">🔁 設定每週重複 (預設顯示 1 個月)</button>
+        </div>
+        
+        <div class="sub-settings" id="repeat-sub-box" style="display:none; margin-top:8px;">
+          <div style="font-weight:bold; margin-bottom:4px;">重複結束條件：</div>
+          <label><input type="radio" name="repeat-end" value="none" checked> 預設未來 1 個月內重複</label><br>
+          <label><input type="radio" name="repeat-end" value="count"> 指定重複 <input type="number" id="repeat-count-input" style="width:45px; padding:2px;" value="4"> 次後停止</label><br>
+          <label><input type="radio" name="repeat-end" value="date"> 指定截止日期：<input type="text" id="repeat-until-input" placeholder="MMDD" style="width:55px; padding:2px;" maxlength="4"></label>
+        </div>
+
+        <div style="margin-top:8px;">
+          <label><input type="checkbox" id="chk-auto-review"> 📖 完成後自動新增「複習」待辦</label>
+        </div>
+      </div>
+
+      <div class="input-btns">
+        <button type="button" class="btn btn-primary" id="add-btn" style="flex: 1;">確認</button>
+        <button type="button" class="btn" id="cancel-btn" style="flex: 1;">返回</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="date-picker-overlay">
+    <div class="picker-modal">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <button type="button" class="btn" id="picker-prev">‹</button>
+        <span id="picker-month-title" style="font-weight:bold; font-size:0.95rem;"></span>
+        <button type="button" class="btn" id="picker-next">›</button>
+      </div>
+      <div style="font-size:0.75rem; color:var(--text-sub); text-align:center; margin-bottom:4px;" id="picker-hint">點選 1 天或多個日期</div>
+      <div class="picker-grid" id="picker-header-grid"></div>
+      <div class="picker-grid" id="picker-body-grid"></div>
+      <div style="display:flex; gap:6px; margin-top:12px;">
+        <button type="button" class="btn btn-primary" id="picker-confirm" style="flex:1;">確認選取</button>
+        <button type="button" class="btn" id="picker-cancel" style="flex:1;">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settings-modal-overlay">
+    <div class="modal">
+      <div class="modal-title">⚙️ 預設圖示與設定</div>
+      <div style="font-size:0.85rem; font-weight:bold; margin-bottom:4px;">預設 Emoji：</div>
+      <input type="text" id="default-emoji-input" class="input-text" style="text-align:center; font-size:1.2rem;" maxlength="2" placeholder="📌">
+      
+      <div style="font-size:0.85rem; font-weight:bold; margin: 8px 0 4px 0;">自訂常用 Emoji 庫：</div>
+      <div style="display:flex; gap:6px; margin-bottom:8px;">
+        <input type="text" id="new-emoji-input" placeholder="輸入 Emoji..." style="flex:1; text-align:center;" maxlength="2">
+        <button type="button" class="btn btn-primary" id="add-custom-emoji-btn">新增</button>
+      </div>
+      
+      <div style="font-size:0.75rem; color:var(--text-sub); margin-bottom:4px;">點擊可設為預設，點「✕」可刪除：</div>
+      <div class="emoji-picker-container" id="settings-emoji-list"></div>
+
+
+      <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">資料備份與還原：</div>
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <button type="button" class="btn btn-primary" id="export-backup-btn" style="flex:1;">⬇️ 匯出備份</button>
+        <button type="button" class="btn" id="import-backup-btn" style="flex:1;">⬆️ 匯入備份</button>
+        <input type="file" id="import-backup-file" accept="application/json,.json" style="display:none;">
+      </div>
+      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">備份檔可用來轉移資料；請妥善保存，避免資料遺失。</div>
+      <div class="input-btns" style="margin-top:14px;">
+        <button type="button" class="btn btn-primary" id="save-settings-btn" style="flex:1;">儲存設定</button>
+        <button type="button" class="btn" id="close-settings-btn" style="flex:1;">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-box" id="todo-box">
+    <div class="section-header">📌 待辦事項 (未排定時間)</div>
+    <ul class="item-list" id="todo-list"></ul>
+  </div>
+
+  <div id="list-view"></div>
+
+  <div id="timeline-view" style="display: none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 16px 8px 16px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button type="button" class="btn" id="timeline-prev-m">‹</button>
+        <span style="font-size:0.85rem; font-weight:bold; color:var(--text-sub);" id="timeline-month-label">時間軸</span>
+        <button type="button" class="btn" id="timeline-next-m">›</button>
+      </div>
+      <button type="button" class="btn" id="timeline-rotate-btn">📱 轉 90°</button>
+    </div>
+    <div class="gantt-wrapper" id="gantt-wrapper">
+      <div class="gantt-header-row" id="gantt-header"></div>
+      <div class="gantt-body" id="gantt-body"></div>
+    </div>
+  </div>
+
+  <div id="calendar-container" style="display: none;">
+    <div class="cal-controls">
+      <button type="button" class="btn" id="cal-prev">‹</button>
+      <span id="cal-month-title" style="font-weight:bold;"></span>
+      <button type="button" class="btn" id="cal-next">›</button>
+      <button type="button" class="btn" id="rotate-btn">📱 轉 90°</button>
+    </div>
+    <div class="cal-grid" id="cal-header-grid"></div>
+    <div class="cal-grid" id="cal-body-grid"></div>
+  </div>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-title">清理已完成事項</div>
+      <button type="button" class="btn modal-btn btn-danger" id="del-all-comp">全部完成刪除</button>
+      <button type="button" class="btn modal-btn btn-primary" id="open-select-del">勾選刪除 / 返回</button>
+      
+      <div id="select-box" style="display:none;">
+        <div style="font-size:0.8rem; color:var(--text-sub); margin-top:8px;">請勾選要處理的項目：</div>
+        <div class="select-list" id="select-list"></div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn modal-btn btn-danger" id="confirm-sel-del" style="flex:1;">刪除選取</button>
+          <button type="button" class="btn modal-btn btn-primary" id="confirm-sel-uncomp" style="flex:1;">返回未完成</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn modal-btn btn-active" id="modal-close" style="margin-top:10px;">退出</button>
+    </div>
+  </div>
+
+  <script>
+    // 安全載入本地資料
+    function loadDB() {
+      try {
+        return JSON.parse(localStorage.getItem('LOCAL_DIARY') || '[]');
+      } catch(e) {
+        return [];
+      }
+    }
+
+    let db = loadDB();
+    let userDefaultEmoji = localStorage.getItem('DEFAULT_EMOJI') || '📌';
+    let emojiPresetList = JSON.parse(localStorage.getItem('EMOJI_PRESETS') || '["📌", "📝", "⭐", "🎯", "🔥", "💡", "☕", "✅", "📖"]');
+    
+    let isEditing = false;
+    let editingItemId = null;
+    let currentView = 'list';
+    let calDate = new Date();
+    let timelineDate = new Date();
+    let isRotated = false;
+
+    let selectedTaskMode = 'fixed-multi';
+    let pickerSelectedDates = [];
+    let pickerCalDate = new Date();
+    let isRepeatEnabled = false;
+
+    const openInputModalBtn = document.getElementById('open-input-modal');
+    const inputModalOverlay = document.getElementById('input-modal-overlay');
+    const inputModalTitle = document.getElementById('input-modal-title');
+    const inEmoji = document.getElementById('in-emoji');
+    const btnPickDate = document.getElementById('btn-pick-date');
+    const inTime = document.getElementById('in-time');
+    const inEndTime = document.getElementById('in-end-time');
+    const inText = document.getElementById('in-text');
+    const toggleRepeatBtn = document.getElementById('toggle-repeat-btn');
+    const repeatSubBox = document.getElementById('repeat-sub-box');
+    const chkAutoReview = document.getElementById('chk-auto-review');
+    const errMsg = document.getElementById('err-msg');
+    
+    const modeMultiBtn = document.getElementById('mode-multi');
+    const modePickoneBtn = document.getElementById('mode-pickone');
+
+    const listView = document.getElementById('list-view');
+    const timelineView = document.getElementById('timeline-view');
+    const calendarContainer = document.getElementById('calendar-container');
+    const todoList = document.getElementById('todo-list');
+    const todoBox = document.getElementById('todo-box');
+
+    const editBtn = document.getElementById('edit-btn');
+    const cleanBtn = document.getElementById('clean-btn');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModalOverlay = document.getElementById('settings-modal-overlay');
+    const defaultEmojiInput = document.getElementById('default-emoji-input');
+
+    modeMultiBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      selectedTaskMode = 'fixed-multi';
+      modeMultiBtn.classList.add('active');
+      modePickoneBtn.classList.remove('active');
+    });
+
+    modePickoneBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      selectedTaskMode = 'pick-one';
+      modePickoneBtn.classList.add('active');
+      modeMultiBtn.classList.remove('active');
+    });
+
+    toggleRepeatBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      isRepeatEnabled = !isRepeatEnabled;
+      repeatSubBox.style.display = isRepeatEnabled ? 'block' : 'none';
+      toggleRepeatBtn.classList.toggle('btn-primary', isRepeatEnabled);
+      toggleRepeatBtn.innerText = isRepeatEnabled ? '🔁 已開啟每週重複' : '🔁 設定每週重複 (預設顯示 1 個月)';
+    });
+
+    const datePickerOverlay = document.getElementById('date-picker-overlay');
+    
+    btnPickDate.addEventListener('click', (e) => {
+      e.preventDefault();
+      const cur = btnPickDate.getAttribute('data-val') || '';
+      pickerSelectedDates = cur ? cur.split(',') : [];
+      openDatePickerModal();
+    });
+
+    function openDatePickerModal() {
+      pickerCalDate = new Date();
+      renderPickerCalendar();
+      datePickerOverlay.classList.add('show');
+    }
+
+    document.getElementById('picker-cancel').addEventListener('click', (e) => {
+      e.preventDefault();
+      datePickerOverlay.classList.remove('show');
+    });
+
+    document.getElementById('picker-prev').addEventListener('click', (e) => {
+      e.preventDefault();
+      pickerCalDate.setMonth(pickerCalDate.getMonth() - 1);
+      renderPickerCalendar();
+    });
+
+    document.getElementById('picker-next').addEventListener('click', (e) => {
+      e.preventDefault();
+      pickerCalDate.setMonth(pickerCalDate.getMonth() + 1);
+      renderPickerCalendar();
+    });
+
+    function renderPickerCalendar() {
+      const year = pickerCalDate.getFullYear();
+      const month = pickerCalDate.getMonth();
+      document.getElementById('picker-month-title').innerText = `${year}年 ${month + 1}月`;
+
+      const headGrid = document.getElementById('picker-header-grid');
+      const bodyGrid = document.getElementById('picker-body-grid');
+      headGrid.innerHTML = ''; bodyGrid.innerHTML = '';
+
+      ['一', '二', '三', '四', '五', '六', '日'].forEach(w => {
+        const d = document.createElement('div');
+        d.className = 'cal-day-head';
+        d.innerText = w;
+        headGrid.appendChild(d);
+      });
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      let startDayIndex = (firstDay.getDay() + 6) % 7;
+
+      for (let i = 0; i < startDayIndex; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'picker-cell other-month';
+        bodyGrid.appendChild(empty);
+      }
+
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const cell = document.createElement('div');
+        cell.className = 'picker-cell';
+        const mmdd = String(month + 1).padStart(2, '0') + String(day).padStart(2, '0');
+        cell.innerText = day;
+
+        if (pickerSelectedDates.includes(mmdd)) {
+          cell.classList.add('selected');
+        }
+
+        cell.onclick = (e) => {
+          e.preventDefault();
+          if (pickerSelectedDates.includes(mmdd)) {
+            pickerSelectedDates = pickerSelectedDates.filter(x => x !== mmdd);
+          } else {
+            pickerSelectedDates.push(mmdd);
+          }
+          pickerSelectedDates.sort();
+          renderPickerCalendar();
+        };
+
+        bodyGrid.appendChild(cell);
+      }
+    }
+
+    document.getElementById('picker-confirm').addEventListener('click', (e) => {
+      e.preventDefault();
+      pickerSelectedDates.sort();
+      const joinedStr = pickerSelectedDates.join(',');
+      btnPickDate.setAttribute('data-val', joinedStr);
+      
+      if (pickerSelectedDates.length === 0) {
+        btnPickDate.innerText = '點選月曆選擇日期';
+      } else if (pickerSelectedDates.length === 1) {
+        btnPickDate.innerText = `已選: ${pickerSelectedDates[0]}`;
+      } else {
+        btnPickDate.innerText = `已選 ${pickerSelectedDates.length} 天`;
+      }
+      datePickerOverlay.classList.remove('show');
+    });
+
+    openInputModalBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      editingItemId = null;
+      inputModalTitle.innerText = "新增事項";
+      inEmoji.value = userDefaultEmoji;
+      btnPickDate.setAttribute('data-val', ''); btnPickDate.innerText = '點選月曆選擇日期';
+      inTime.value = ''; inEndTime.value = '';
+      inText.value = '';
+      pickerSelectedDates = [];
+      selectedTaskMode = 'fixed-multi';
+      modeMultiBtn.classList.add('active');
+      modePickoneBtn.classList.remove('active');
+      
+      isRepeatEnabled = false;
+      repeatSubBox.style.display = 'none';
+      toggleRepeatBtn.classList.remove('btn-primary');
+      toggleRepeatBtn.innerText = '🔁 設定每週重複 (預設顯示 1 個月)';
+      chkAutoReview.checked = false;
+      renderModalEmojiPicker();
+      inputModalOverlay.classList.add('show');
+    });
+
+    document.getElementById('cancel-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      inputModalOverlay.classList.remove('show');
+      errMsg.style.display = 'none';
+    });
+
+    function renderModalEmojiPicker() {
+      const picker = document.getElementById('modal-emoji-picker');
+      picker.innerHTML = '';
+      emojiPresetList.forEach(em => {
+        const chip = document.createElement('div');
+        chip.className = 'emoji-chip';
+        chip.innerText = em;
+        chip.onclick = (e) => { e.preventDefault(); inEmoji.value = em; };
+        picker.appendChild(chip);
+      });
+    }
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      defaultEmojiInput.value = userDefaultEmoji;
+      renderSettingsEmojiList();
+      settingsModalOverlay.classList.add('show');
+    });
+
+    document.getElementById('close-settings-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      settingsModalOverlay.classList.remove('show');
+    });
+
+    function renderSettingsEmojiList() {
+      const list = document.getElementById('settings-emoji-list');
+      list.innerHTML = '';
+      emojiPresetList.forEach((em, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'emoji-chip deletable';
+        chip.innerHTML = `${em}<span class="del-tag">✕</span>`;
+        chip.onclick = (e) => {
+          e.preventDefault();
+          if (e.target.classList.contains('del-tag')) {
+            emojiPresetList.splice(idx, 1);
+            saveEmojiPresets();
+            renderSettingsEmojiList();
+          } else {
+            defaultEmojiInput.value = em;
+          }
+        };
+        list.appendChild(chip);
+      });
+    }
+
+    document.getElementById('add-custom-emoji-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      const val = document.getElementById('new-emoji-input').value.trim();
+      if (val && !emojiPresetList.includes(val)) {
+        emojiPresetList.push(val);
+        saveEmojiPresets();
+        document.getElementById('new-emoji-input').value = '';
+        renderSettingsEmojiList();
+      }
+    });
+
+    function saveEmojiPresets() {
+      try { localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList)); } catch(e){}
+    }
+
+    document.getElementById('save-settings-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      userDefaultEmoji = defaultEmojiInput.value.trim() || '📌';
+      try { localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji); } catch(e){}
+      settingsModalOverlay.classList.remove('show');
+      render();
+    });
+
+    document.getElementById('add-btn').addEventListener('click', (e) => {
+      e.preventDefault(); // 防範手機端 Submit 觸發刷新
+      const em = inEmoji.value.trim() || userDefaultEmoji;
+      const d = btnPickDate.getAttribute('data-val') || '';
+      const t = inTime.value.trim();
+      const et = inEndTime.value.trim();
+      const txt = inText.value.trim();
+
+      if (!txt || !d) {
+        errMsg.style.display = 'block';
+        return;
+      }
+      errMsg.style.display = 'none';
+
+      const datesArray = d.split(',').map(x => x.trim());
+
+      const repeatOpt = isRepeatEnabled ? {
+        mode: selectedTaskMode,
+        type: document.querySelector('input[name="repeat-end"]:checked').value,
+        count: parseInt(document.getElementById('repeat-count-input').value, 10) || 4,
+        untilDate: document.getElementById('repeat-until-input').value.trim()
+      } : null;
+
+      const groupId = selectedTaskMode === 'pick-one' ? `group_${Date.now()}` : null;
+
+      if (selectedTaskMode === 'fixed-multi') {
+        datesArray.forEach((singleD, idx) => {
+          db.push({
+            id: Date.now() + idx,            emoji: em, date: singleD, time: t,
+            endDate: '', endTime: et, text: txt,
+            completed: false, repeat: repeatOpt,
+            taskType: 'fixed-multi', groupId: null,
+            autoReview: chkAutoReview.checked
+          });
+        });
+      } else {
+        const startDate = datesArray[0];
+        const endDate = datesArray[datesArray.length - 1];
+
+        if (editingItemId) {
+          const item = db.find(x => x.id === editingItemId);
+          if (item) {
+            item.emoji = em; item.date = startDate; item.time = t;
+            item.endDate = endDate; item.endTime = et; item.text = txt;
+            item.repeat = repeatOpt; item.taskType = selectedTaskMode;
+            item.groupId = groupId;
+            item.autoReview = chkAutoReview.checked;
+          }
+        } else {
+          db.push({
+            id: Date.now(),
+            emoji: em, date: startDate, time: t,
+            endDate: endDate, endTime: et, text: txt,
+            completed: false, repeat: repeatOpt,
+            taskType: selectedTaskMode, groupId: groupId,
+            autoReview: chkAutoReview.checked
+          });
+        }
+      }
+
+      saveAndRender();
+      inputModalOverlay.classList.remove('show');
+    });
+
+    function saveAndRender() {
+      try {
+        localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
+      } catch (err) {
+        console.error('LocalStorage 儲存受限', err);
+      }
+      render();
+    }
+
+    function addDaysToMMDD(mmdd, daysToAdd) {
+      if (!mmdd || mmdd.length !== 4) return mmdd;
+      const currYear = new Date().getFullYear();
+      const mm = parseInt(mmdd.substring(0, 2), 10) - 1;
+      const dd = parseInt(mmdd.substring(2, 4), 10);
+      const d = new Date(currYear, mm, dd);
+      d.setDate(d.getDate() + daysToAdd);
+      const newMM = String(d.getMonth() + 1).padStart(2, '0');
+      const newDD = String(d.getDate()).padStart(2, '0');
+      return `${newMM}${newDD}`;
+    }
+
+    function toggleComplete(id) {
+      const item = db.find(x => x.id === id);
+      if (!item) return;
+
+      const targetStatus = !item.completed;
+      item.completed = targetStatus;
+
+      if (item.taskType === 'pick-one' && item.groupId) {
+        db.forEach(x => {
+          if (x.groupId === item.groupId) x.completed = targetStatus;
+        });
+      }
+
+      if (targetStatus && item.autoReview) {
+        db.push({
+          id: Date.now() + 1,
+          emoji: '📖',
+          date: '', time: '', endDate: '', endTime: '',
+          text: `複習：${item.text}`,
+          completed: false, repeat: null, autoReview: false
+        });
+      }
+
+      saveAndRender();
+    }
+
+    function deleteItem(id) {
+      db = db.filter(x => x.id !== id);
+      saveAndRender();
+    }
+
+    function openEditModal(id) {
+      const item = db.find(x => x.id === id);
+      if (!item) return;
+
+      editingItemId = id;
+      inputModalTitle.innerText = "修改事項";
+      inEmoji.value = item.emoji || userDefaultEmoji;
+      
+      btnPickDate.setAttribute('data-val', item.date || '');
+      btnPickDate.innerText = item.date ? `已選: ${item.date}` : '點選月曆選擇日期';
+
+      inTime.value = item.time || "";
+      inEndTime.value = item.endTime || "";
+      inText.value = item.text || "";
+      
+      selectedTaskMode = item.taskType || 'fixed-multi';
+      if (selectedTaskMode === 'pick-one') {
+        modePickoneBtn.classList.add('active');
+        modeMultiBtn.classList.remove('active');
+      } else {
+        modeMultiBtn.classList.add('active');
+        modePickoneBtn.classList.remove('active');
+      }
+
+      if (item.repeat) {
+        isRepeatEnabled = true;
+        repeatSubBox.style.display = 'block';
+        toggleRepeatBtn.classList.add('btn-primary');
+        toggleRepeatBtn.innerText = '🔁 已開啟每週重複';
+        const rRad = document.querySelector(`input[name="repeat-end"][value="${item.repeat.type}"]`);
+        if (rRad) rRad.checked = true;
+        document.getElementById('repeat-count-input').value = item.repeat.count || 4;
+        document.getElementById('repeat-until-input').value = item.repeat.untilDate || '';
+      } else {
+        isRepeatEnabled = false;
+        repeatSubBox.style.display = 'none';
+        toggleRepeatBtn.classList.remove('btn-primary');
+        toggleRepeatBtn.innerText = '🔁 設定每週重複 (預設顯示 1 個月)';
+      }
+
+      chkAutoReview.checked = !!item.autoReview;
+      renderModalEmojiPicker();
+      inputModalOverlay.classList.add('show');
+    }
+
+    editBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      isEditing = !isEditing;
+      editBtn.classList.toggle('btn-active', isEditing);
+      document.body.classList.toggle('editing', isEditing);
+    });
+
+    document.getElementById('tab-list').addEventListener('click', (e) => {
+      e.preventDefault();
+      currentView = 'list'; switchTab('tab-list');
+      listView.style.display = 'block'; timelineView.style.display = 'none';
+      calendarContainer.style.display = 'none'; todoBox.style.display = 'block';
+    });
+
+    document.getElementById('tab-cal').addEventListener('click', (e) => {
+      e.preventDefault();
+      currentView = 'cal'; switchTab('tab-cal');
+      listView.style.display = 'none'; timelineView.style.display = 'none';
+      calendarContainer.style.display = 'block'; todoBox.style.display = 'block';
+      renderCalendar();
+    });
+
+    document.getElementById('tab-timeline').addEventListener('click', (e) => {
+      e.preventDefault();
+      currentView = 'timeline'; switchTab('tab-timeline');
+      listView.style.display = 'none'; calendarContainer.style.display = 'none';
+      timelineView.style.display = 'block'; todoBox.style.display = 'none';
+      renderTimelineGantt();
+    });
+
+    function switchTab(activeId) {
+      document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(activeId).classList.add('active');
+    }
+
+    function getExpandedItems() {
+      const list = [];
+      db.forEach(item => {
+        if (!item.date) return;
+
+        list.push(item);
+
+        if (item.repeat) {
+          let maxTimes = 4;
+          if (item.repeat.type === 'count') maxTimes = item.repeat.count;
+
+          for (let week = 1; week < maxTimes; week++) {
+            const nextStart = addDaysToMMDD(item.date, week * 7);
+            const nextEnd = item.endDate ? addDaysToMMDD(item.endDate, week * 7) : '';
+
+            if (item.repeat.type === 'date' && item.repeat.untilDate && nextStart > item.repeat.untilDate) {
+              break;
+            }
+
+            list.push({
+              ...item,
+              id: `${item.id}_rep_${week}`,
+              date: nextStart,
+              endDate: nextEnd,
+              isRepeatInstance: true
+            });
+          }
+        }
+      });
+      return list;
+    }
+
+    function render() {
+      todoList.innerHTML = '';
+      const todos = db.filter(x => !x.date && !x.completed);
+      todos.forEach(item => { todoList.appendChild(createItemRow(item)); });
+
+      listView.innerHTML = '';
+      const dateMap = {};
+      const expandedItems = getExpandedItems();
+
+      expandedItems.forEach(x => {
+        const startDate = x.date;
+        const endDate = x.endDate || startDate;
+        
+        let curr = startDate;
+        let safetyCounter = 0;
+        while (curr <= endDate && safetyCounter < 7) {
+          if (!dateMap[curr]) dateMap[curr] = [];
+          dateMap[curr].push(x);
+          curr = addDaysToMMDD(curr, 1);
+          safetyCounter++;
+        }
+      });
+
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const todayMMDD = String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+
+      const dates = Array.from(new Set([...Object.keys(dateMap), todayMMDD])).sort();
+
+      let lastWeek = -1;
+      dates.forEach(d => {
+        const mm = parseInt(d.substring(0, 2), 10) - 1;
+        const dd = parseInt(d.substring(2, 4), 10);
+        const dateObj = new Date(currentYear, mm, dd);
+        
+        const weekNum = getWeekNumberNumber(dateObj);
+        if (lastWeek !== -1 && weekNum !== lastWeek) {
+          const div = document.createElement('div');
+          div.className = 'week-divider';
+          listView.appendChild(div);
+        }
+        lastWeek = weekNum;
+
+        const card = document.createElement('div');
+        card.className = `date-card ${d === todayMMDD ? 'today' : ''}`;
+        card.id = `date-${d}`;
+
+        const header = document.createElement('div');
+        header.className = 'date-header';
+        
+        let repeatBadge = '';
+        if (dateMap[d]) {
+          const hasRepeat = dateMap[d].some(item => item.repeat);
+          if (hasRepeat) repeatBadge = ' 🔄';
+        }
+
+        header.innerText = `${d.substring(0, 2)}/${d.substring(2, 4)} ${d === todayMMDD ? ' (今天)' : ''}${repeatBadge}`;
+        card.appendChild(header);
+
+        const ul = document.createElement('ul');
+        ul.className = 'item-list';
+        (dateMap[d] || []).forEach(item => {
+          ul.appendChild(createItemRow(item));
+        });
+        card.appendChild(ul);
+        listView.appendChild(card);
+      });
+
+      if (currentView === 'cal') renderCalendar();
+      if (currentView === 'timeline') renderTimelineGantt();
+    }
+
+    function createItemRow(item) {
+      const li = document.createElement('li');
+      li.className = 'item-row';
+      const em = item.emoji || userDefaultEmoji;
+      
+      let timeDisp = '';
+      if (item.time && item.endTime) timeDisp = `${item.time}~${item.endTime}`;
+      else if (item.time) timeDisp = item.time;
+
+      let modeHint = '';
+      if (item.taskType === 'pick-one') modeHint = ' (多天一次)';
+
+      const realId = String(item.id).split('_rep_')[0];
+
+      li.innerHTML = `
+        <div class="item-content" onclick="toggleComplete(${realId})">
+          <span class="item-emoji">${em}</span>
+          ${timeDisp ? `<span class="item-time">${timeDisp}</span>` : ''}
+          <span class="item-text ${item.completed ? 'completed' : ''}">${item.text}${modeHint}</span>
+        </div>
+        <div class="action-btns">
+          <button type="button" class="edit-item-btn" onclick="openEditModal(${realId})">✏️</button>
+          <button type="button" class="del-btn" onclick="deleteItem(${realId})">✕</button>
+        </div>
+      `;
+      return li;
+    }
+
+    function getWeekNumberNumber(d) {
+      const date = new Date(d.getTime());
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+      const week1 = new Date(date.getFullYear(), 0, 4);
+      return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    }
+
+    function renderTimelineGantt() {
+      const ganttHeader = document.getElementById('gantt-header');
+      const ganttBody = document.getElementById('gantt-body');
+      const monthLabel = document.getElementById('timeline-month-label');
+
+      ganttHeader.innerHTML = '';
+      ganttBody.innerHTML = '';
+
+      const viewYear = timelineDate.getFullYear();
+      const viewMonth = timelineDate.getMonth();
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+      const now = new Date();
+      const isCurrentMonth = (now.getFullYear() === viewYear && now.getMonth() === viewMonth);
+      const todayDateNum = now.getDate();
+
+      monthLabel.innerText = `${viewYear}年 ${viewMonth + 1}月`;
+
+      const colWidth = 45;
+      const minWidthPx = daysInMonth * colWidth;
+
+      ganttHeader.style.minWidth = `${minWidthPx}px`;
+      ganttBody.style.minWidth = `${minWidthPx}px`;
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const col = document.createElement('div');
+        col.className = `gantt-day-col ${isCurrentMonth && day === todayDateNum ? 'today-head' : ''}`;
+        if (isCurrentMonth && day === todayDateNum) {
+          col.innerHTML = `<div class="today-marker-badge">${day}</div>`;
+        } else {
+          col.innerText = day;
+        }
+        ganttHeader.appendChild(col);
+      }
+
+      if (isCurrentMonth) {
+        const todayLineLeft = (todayDateNum - 1) * colWidth + (colWidth / 2);
+        const todayLine = document.createElement('div');
+        todayLine.className = 'today-line';
+        todayLine.style.left = `${todayLineLeft}px`;
+        ganttBody.appendChild(todayLine);
+      }
+
+      const currMonthMM = String(viewMonth + 1).padStart(2, '0');
+      const expandedItems = getExpandedItems();
+      const monthItems = expandedItems.filter(x => x.date && x.date.substring(0, 2) === currMonthMM);
+
+      if (monthItems.length === 0) {
+        const emptyHint = document.createElement('div');
+        emptyHint.style.cssText = 'color:gray; font-size:0.85rem; padding:20px 0; text-align:center; width:100%;';
+        emptyHint.innerText = '本月尚無行程';
+        ganttBody.appendChild(emptyHint);
+      } else {
+        const rowMap = {};
+        let nextRowIndex = 0;
+
+        monthItems.forEach(item => {
+          if (rowMap[item.text] === undefined) {
+            rowMap[item.text] = nextRowIndex;
+            nextRowIndex++;
+          }
+        });
+
+        monthItems.forEach(item => {
+          const startD = item.date;
+          const endD = item.endDate || startD;
+
+          const startDayNum = parseInt(startD.substring(2, 4), 10);
+          const endDayNum = parseInt(endD.substring(2, 4), 10);
+
+          if (isNaN(startDayNum)) return;
+
+          const spanDays = Math.min(7, Math.max(1, (endDayNum - startDayNum) + 1));
+          const leftPos = (startDayNum - 1) * colWidth + 4;
+          const barWidth = (spanDays * colWidth) - 8;
+
+          const rowIndex = rowMap[item.text];
+          const topOffset = 10 + (rowIndex * 40);
+
+          const bar = document.createElement('div');
+          bar.className = `gantt-bar-item ${item.completed ? 'completed' : ''}`;
+          bar.style.left = `${leftPos}px`;
+          bar.style.width = `${barWidth}px`;
+          bar.style.top = `${topOffset}px`;
+          
+          const em = item.emoji || userDefaultEmoji;
+          let timeDisp = '';
+          if (item.time && item.endTime) timeDisp = `[${item.time}~${item.endTime}] `;
+          else if (item.time) timeDisp = `[${item.time}] `;
+
+          bar.innerHTML = `<span>${em} ${timeDisp}${item.text}</span>`;
+          
+          const realId = String(item.id).split('_rep_')[0];
+          bar.onclick = (e) => {
+            e.stopPropagation();
+            openEditModal(Number(realId));
+          };
+
+          ganttBody.appendChild(bar);
+        });
+
+        ganttBody.style.height = `${10 + (nextRowIndex * 40) + 20}px`;
+      }
+    }
+
+    document.getElementById('timeline-prev-m').addEventListener('click', (e) => {
+      e.preventDefault();
+      timelineDate.setMonth(timelineDate.getMonth() - 1);
+      renderTimelineGantt();
+    });
+
+    document.getElementById('timeline-next-m').addEventListener('click', (e) => {
+      e.preventDefault();
+      timelineDate.setMonth(timelineDate.getMonth() + 1);
+      renderTimelineGantt();
+    });
+
+    function renderCalendar() {
+      const year = calDate.getFullYear();
+      const month = calDate.getMonth();
+      document.getElementById('cal-month-title').innerText = `${year}年 ${month + 1}月`;
+
+      const headGrid = document.getElementById('cal-header-grid');
+      const bodyGrid = document.getElementById('cal-body-grid');
+      headGrid.innerHTML = ''; bodyGrid.innerHTML = '';
+
+      ['一', '二', '三', '四', '五', '六', '日'].forEach(w => {
+        const d = document.createElement('div');
+        d.className = 'cal-day-head';
+        d.innerText = w;
+        headGrid.appendChild(d);
+      });
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      let startDayIndex = (firstDay.getDay() + 6) % 7;
+
+      for (let i = 0; i < startDayIndex; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'cal-cell';
+        empty.style.background = '#fafafa';
+        bodyGrid.appendChild(empty);
+      }
+
+      const expandedItems = getExpandedItems();
+
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const cell = document.createElement('div');
+        cell.className = 'cal-cell';
+        const dateStr = String(month + 1).padStart(2, '0') + String(day).padStart(2, '0');
+
+        cell.innerHTML = `<div class="cal-cell-date">${day}</div>`;
+        
+        const items = expandedItems.filter(x => {
+          if (!x.date) return false;
+          const startD = x.date;
+          const endD = x.endDate || startD;
+
+          const isWindowTask = x.taskType === 'pick-one';
+          if (isWindowTask) {
+            return dateStr === endD;
+          } else {
+            return dateStr >= startD && dateStr <= endD;
+          }
+        });
+
+        items.forEach(it => {
+          const em = it.emoji || userDefaultEmoji;
+          const compClass = it.completed ? 'completed' : '';
+          cell.innerHTML += `<div class="cal-item ${compClass}">${em} ${it.text}</div>`;
+        });
+
+        bodyGrid.appendChild(cell);
+      }
+    }
+
+    document.getElementById('cal-prev').addEventListener('click', (e) => {
+      e.preventDefault();
+      calDate.setMonth(calDate.getMonth() - 1);
+      renderCalendar();
+    });
+    document.getElementById('cal-next').addEventListener('click', (e) => {
+      e.preventDefault();
+      calDate.setMonth(calDate.getMonth() + 1);
+      renderCalendar();
+    });
+
+    function setupRotateButton(btnId, containerEl) {
+      document.getElementById(btnId).addEventListener('click', (e) => {
+        e.preventDefault();
+        isRotated = !isRotated;
+        if (isRotated) {
+          containerEl.classList.add('rotate-90-active');
+          document.getElementById(btnId).innerText = '📱 還原';
+        } else {
+          containerEl.classList.remove('rotate-90-active');
+          document.getElementById(btnId).innerText = '📱 轉 90°';
+        }
+      });
+    }
+
+    setupRotateButton('rotate-btn', calendarContainer);
+    setupRotateButton('timeline-rotate-btn', timelineView);
+
+    const overlay = document.getElementById('modal-overlay');
+    cleanBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      overlay.style.display = 'flex';
+      document.getElementById('select-box').style.display = 'none';
+    });
+    document.getElementById('modal-close').addEventListener('click', (e) => {
+      e.preventDefault();
+      overlay.style.display = 'none';
+      document.getElementById('select-box').style.display = 'none';
+    });
+
+    document.getElementById('del-all-comp').addEventListener('click', (e) => {
+      e.preventDefault();
+      db = db.filter(x => !x.completed);
+      saveAndRender();
+      overlay.style.display = 'none';
+    });
+
+    document.getElementById('open-select-del').addEventListener('click', (e) => {
+      e.preventDefault();
+      const box = document.getElementById('select-box');
+      const list = document.getElementById('select-list');
+      box.style.display = 'block';
+      list.innerHTML = '';
+
+      const completedItems = db.filter(x => x.completed);
+      if (completedItems.length === 0) {
+        list.innerHTML = '<div style="font-size:0.85rem;color:gray;text-align:center;padding:10px;">無任何已完成事項</div>';
+        return;
+      }
+
+      const groupMap = {};
+      completedItems.forEach(x => {
+        const key = x.date || '待辦';
+        if (!groupMap[key]) groupMap[key] = [];
+        groupMap[key].push(x);
+      });
+
+      Object.keys(groupMap).forEach(dateKey => {
+        const groupHeader = document.createElement('label');
+        groupHeader.style.display = 'block';
+        groupHeader.style.fontWeight = 'bold';
+        groupHeader.style.marginTop = '6px';
+        groupHeader.style.fontSize = '0.85rem';
+        groupHeader.innerHTML = `<input type="checkbox" class="group-chk" data-date="${dateKey}"> 📅 ${dateKey === '待辦' ? '📌 待辦事項區' : dateKey}`;
+        list.appendChild(groupHeader);
+
+        groupMap[dateKey].forEach(item => {
+          const lbl = document.createElement('label');
+          lbl.style.display = 'block';
+          lbl.style.marginLeft = '16px';
+          lbl.style.fontSize = '0.85rem';
+          lbl.style.color = '#333';
+          const em = item.emoji || userDefaultEmoji;
+          lbl.innerHTML = `<input type="checkbox" class="item-chk" data-id="${item.id}" data-date="${dateKey}"> ${em} ${item.text}`;
+          list.appendChild(lbl);
+        });
+      });
+
+      document.querySelectorAll('.group-chk').forEach(gChk => {
+        gChk.addEventListener('change', (evt) => {
+          const d = evt.target.getAttribute('data-date');
+          document.querySelectorAll(`.item-chk[data-date="${d}"]`).forEach(iChk => {
+            iChk.checked = evt.target.checked;
+          });
+        });
+      });
+    });
+
+    document.getElementById('confirm-sel-del').addEventListener('click', (e) => {
+      e.preventDefault();
+      const checkedIds = Array.from(document.querySelectorAll('.item-chk:checked')).map(x => Number(x.getAttribute('data-id')));
+      db = db.filter(x => !checkedIds.includes(x.id));
+      saveAndRender();
+      overlay.style.display = 'none';
+    });
+
+    document.getElementById('confirm-sel-uncomp').addEventListener('click', (e) => {
+      e.preventDefault();
+      const checkedIds = Array.from(document.querySelectorAll('.item-chk:checked')).map(x => Number(x.getAttribute('data-id')));
+      db.forEach(x => {
+        if (checkedIds.includes(x.id)) {
+          x.completed = false;
+        }
+      });
+      saveAndRender();
+      overlay.style.display = 'none';
+    });
+
+
+    // JSON 備份：保留既有 LOCAL_DIARY / DEFAULT_EMOJI / EMOJI_PRESETS 資料格式
+    document.getElementById('export-backup-btn').addEventListener('click', () => {
+      const backup = {
+        app: '簡潔記事',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        data: db,
+        defaultEmoji: userDefaultEmoji,
+        emojiPresets: emojiPresetList
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '簡潔記事備份-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('import-backup-btn').addEventListener('click', () => {
+      document.getElementById('import-backup-file').click();
+    });
+
+    document.getElementById('import-backup-file').addEventListener('change', async (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      try {
+        const parsed = JSON.parse(await file.text());
+        const importedDB = Array.isArray(parsed) ? parsed : parsed && parsed.data;
+        if (!Array.isArray(importedDB) || importedDB.some(item => !item || typeof item !== 'object')) {
+          throw new Error('備份格式不正確');
+        }
+        if (!confirm('匯入備份會取代這台裝置目前的記事資料。建議先匯出目前資料。確定要繼續嗎？')) return;
+        db = importedDB;
+        if (!Array.isArray(parsed) && parsed) {
+          if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) {
+            userDefaultEmoji = parsed.defaultEmoji;
+          }
+          if (Array.isArray(parsed.emojiPresets)) {
+            emojiPresetList = parsed.emojiPresets.filter(x => typeof x === 'string');
+          }
+        }
+        localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
+        localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji);
+        localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList));
+        settingsModalOverlay.classList.remove('show');
+        saveAndRender();
+        alert('備份匯入成功！');
+      } catch (error) {
+        alert('無法匯入備份：' + error.message);
+      } finally {
+        event.target.value = '';
+      }
+    });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(error => {
+          console.warn('Service Worker 註冊失敗：', error);
+        });
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>
