@@ -703,8 +703,28 @@
       <button type="button" class="btn" id="cal-next">›</button>
       <button type="button" class="btn" id="rotate-btn">📱 轉 90°</button>
     </div>
+    <div style="margin: 0 16px 10px 16px;">
+      <button type="button" class="btn btn-primary" id="open-calendar-export">🖼️ 匯出月曆照片</button>
+    </div>
     <div class="cal-grid" id="cal-header-grid"></div>
     <div class="cal-grid" id="cal-body-grid"></div>
+  </div>
+
+  <div class="modal-overlay" id="calendar-export-overlay">
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-title">🖼️ 匯出月曆照片</div>
+      <div style="font-size:0.85rem; margin-bottom:8px;">先選年份，再勾選月份；可以切換年份繼續加入，最後匯出成一張 PNG 長圖片。</div>
+      <label for="calendar-export-year" style="font-size:0.85rem; font-weight:bold;">年份</label>
+      <input type="number" id="calendar-export-year" min="1900" max="2100" style="width:100%; margin:6px 0 10px;">
+      <div id="calendar-export-months" style="display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:12px;"></div>
+      <div style="font-size:0.82rem; font-weight:bold; margin-bottom:5px;">已選月份</div>
+      <div id="calendar-export-selected" style="font-size:0.82rem; color:var(--text-sub); padding:8px; background:#f7f7f9; border-radius:8px; min-height:36px; margin-bottom:10px;">尚未選擇</div>
+      <div style="font-size:0.72rem; color:var(--text-sub); line-height:1.5; margin-bottom:10px;">提醒：目前記事日期沒有記錄年份，因此不同年份的同月同日會顯示相同記事；月曆星期排列會依所選年份計算。</div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-primary" id="download-calendar-image" style="flex:1;">匯出 PNG</button>
+        <button type="button" class="btn" id="cancel-calendar-export" style="flex:1;">取消</button>
+      </div>
+    </div>
   </div>
 
   <div class="modal-overlay" id="modal-overlay">
@@ -1554,6 +1574,184 @@
 
     setupRotateButton('rotate-btn', calendarContainer);
     setupRotateButton('timeline-rotate-btn', timelineView);
+
+    // 月曆照片匯出：可跨年份累積選取月份，輸出為單張 PNG 長圖。
+    const calendarExportOverlay = document.getElementById('calendar-export-overlay');
+    const calendarExportYear = document.getElementById('calendar-export-year');
+    const calendarExportMonths = document.getElementById('calendar-export-months');
+    const calendarExportSelected = document.getElementById('calendar-export-selected');
+    const selectedExportMonths = new Set();
+
+    function updateCalendarExportSelection() {
+      const values = Array.from(selectedExportMonths).sort();
+      calendarExportSelected.textContent = values.length
+        ? values.map(v => {
+            const [y, m] = v.split('-');
+            return `${y}年${Number(m)}月`;
+          }).join('、')
+        : '尚未選擇';
+      document.getElementById('download-calendar-image').disabled = values.length === 0;
+    }
+
+    function renderCalendarExportMonthChoices() {
+      const year = Math.max(1900, Math.min(2100, Number(calendarExportYear.value) || new Date().getFullYear()));
+      calendarExportMonths.innerHTML = '';
+      for (let month = 1; month <= 12; month++) {
+        const key = `${year}-${String(month).padStart(2, '0')}`;
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:5px;padding:8px 5px;border:1px solid var(--border-color);border-radius:8px;font-size:0.85rem;background:#fff;';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = selectedExportMonths.has(key);
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) selectedExportMonths.add(key);
+          else selectedExportMonths.delete(key);
+          updateCalendarExportSelection();
+        });
+        const span = document.createElement('span');
+        span.textContent = `${month}月`;
+        label.append(checkbox, span);
+        calendarExportMonths.appendChild(label);
+      }
+      updateCalendarExportSelection();
+    }
+
+    document.getElementById('open-calendar-export').addEventListener('click', () => {
+      calendarExportYear.value = calDate.getFullYear();
+      renderCalendarExportMonthChoices();
+      calendarExportOverlay.classList.add('show');
+    });
+    calendarExportYear.addEventListener('change', renderCalendarExportMonthChoices);
+    document.getElementById('cancel-calendar-export').addEventListener('click', () => {
+      calendarExportOverlay.classList.remove('show');
+    });
+
+    function drawCalendarExportMonth(ctx, year, month, top, width) {
+      const padding = 28;
+      const titleHeight = 76;
+      const weekdayHeight = 42;
+      const cellHeight = 142;
+      const firstDay = new Date(year, month - 1, 1);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const offset = (firstDay.getDay() + 6) % 7;
+      const rows = Math.ceil((offset + daysInMonth) / 7);
+      const gridTop = top + titleHeight + weekdayHeight;
+      const cellWidth = (width - padding * 2) / 7;
+      const expandedItems = getExpandedItems();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, top, width, titleHeight + weekdayHeight + rows * cellHeight + padding);
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText(`${year}年 ${month}月`, padding, top + 48);
+      ctx.fillStyle = '#777780';
+      ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillText('簡潔記事', width - padding - 110, top + 45);
+
+      const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+      weekdays.forEach((day, i) => {
+        const x = padding + i * cellWidth;
+        ctx.fillStyle = '#f1f2f5';
+        ctx.fillRect(x, top + titleHeight, cellWidth, weekdayHeight);
+        ctx.fillStyle = '#55555d';
+        ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(day, x + cellWidth / 2, top + titleHeight + 28);
+      });
+      ctx.textAlign = 'left';
+
+      for (let day = 1; day <= rows * 7; day++) {
+        const actualDay = day - offset;
+        const col = (day - 1) % 7;
+        const row = Math.floor((day - 1) / 7);
+        const x = padding + col * cellWidth;
+        const y = gridTop + row * cellHeight;
+        ctx.fillStyle = actualDay > 0 && actualDay <= daysInMonth ? '#ffffff' : '#fafafa';
+        ctx.fillRect(x, y, cellWidth, cellHeight);
+        ctx.strokeStyle = '#e5e5ea';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, cellWidth, cellHeight);
+        if (actualDay < 1 || actualDay > daysInMonth) continue;
+
+        ctx.fillStyle = '#1d1d1f';
+        ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.fillText(String(actualDay), x + 9, y + 28);
+
+        const dateStr = String(month).padStart(2, '0') + String(actualDay).padStart(2, '0');
+        const dayItems = expandedItems.filter(item => {
+          if (!item.date) return false;
+          const startDate = item.date;
+          const endDate = item.endDate || startDate;
+          return item.taskType === 'pick-one'
+            ? dateStr === endDate
+            : dateStr >= startDate && dateStr <= endDate;
+        });
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x + 5, y + 36, cellWidth - 10, cellHeight - 40);
+        ctx.clip();
+        let textY = y + 58;
+        dayItems.forEach(item => {
+          const line = `${item.emoji || userDefaultEmoji} ${item.text || ''}`;
+          ctx.fillStyle = item.completed ? '#a2a2a7' : '#33333a';
+          ctx.font = '17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          const maxWidth = cellWidth - 18;
+          let remaining = line;
+          while (remaining.length && textY < y + cellHeight - 5) {
+            let piece = '';
+            while (remaining.length && ctx.measureText(piece + remaining[0]).width <= maxWidth) {
+              piece += remaining[0];
+              remaining = remaining.slice(1);
+            }
+            if (!piece) { piece = remaining[0]; remaining = remaining.slice(1); }
+            ctx.fillText(piece, x + 9, textY);
+            textY += 21;
+          }
+        });
+        ctx.restore();
+      }
+      return titleHeight + weekdayHeight + rows * cellHeight + padding;
+    }
+
+    document.getElementById('download-calendar-image').addEventListener('click', () => {
+      const selections = Array.from(selectedExportMonths).sort();
+      if (!selections.length) return;
+      const width = 1200;
+      const monthHeights = selections.map(value => {
+        const [year, month] = value.split('-').map(Number);
+        const offset = (new Date(year, month - 1, 1).getDay() + 6) % 7;
+        const rows = Math.ceil((offset + new Date(year, month, 0).getDate()) / 7);
+        return 76 + 42 + rows * 142 + 28;
+      });
+      const gap = 24;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = monthHeights.reduce((sum, h) => sum + h, 0) + gap * (selections.length - 1) + 48;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f1f2f5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      let top = 24;
+      selections.forEach((value, index) => {
+        const [year, month] = value.split('-').map(Number);
+        top += drawCalendarExportMonth(ctx, year, month, top, width);
+        if (index < selections.length - 1) top += gap;
+      });
+      canvas.toBlob(blob => {
+        if (!blob) {
+          alert('圖片產生失敗，請再試一次。');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `簡潔記事月曆-${selections.length}個月份.png`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        calendarExportOverlay.classList.remove('show');
+      }, 'image/png');
+    });
 
     const overlay = document.getElementById('modal-overlay');
     cleanBtn.addEventListener('click', (e) => {
