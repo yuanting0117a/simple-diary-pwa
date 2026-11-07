@@ -1,4 +1,4 @@
-const CACHE_NAME = 'simple-diary-pwa-v14';
+const CACHE_NAME = 'simple-diary-pwa-v15';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icons/icon.svg'];
 
 self.addEventListener('install', event => {
