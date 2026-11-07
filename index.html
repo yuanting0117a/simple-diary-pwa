@@ -1764,7 +1764,7 @@
         }
       });
       rows.sort((a,b)=>a.start-b.start);
-      const pad=24,labelW=300,colW=48,headH=90,rowH=48;
+      const pad=24,labelW=300,colW=48,headH=90,rowH=34;
       const canvas=document.createElement('canvas');
       canvas.width=pad*2+labelW+count*colW;canvas.height=pad*2+headH+Math.max(1,rows.length)*rowH;
       if(canvas.width>30000||canvas.height>30000){alert('圖片尺寸過大，請縮短日期範圍或減少事項數量。');return;}
@@ -1773,7 +1773,7 @@
       const gx=pad+labelW;c.fillStyle='#eceff4';c.fillRect(gx,pad+headH-20,count*colW,30);c.font='12px sans-serif';c.textAlign='center';
       for(let i=0;i<count;i++){const d=new Date(start.getTime()+i*86400000),x=gx+i*colW;c.fillStyle='#555560';c.fillText((d.getMonth()+1)+'/'+d.getDate(),x+colW/2,pad+headH);if(d.getDate()===1||i===0){c.strokeStyle='#c5c7ce';c.beginPath();c.moveTo(x,pad+headH-20);c.lineTo(x,canvas.height-pad);c.stroke();}}
       c.textAlign='left';
-      rows.forEach((r,i)=>{const y=pad+headH+i*rowH+24,it=r.item;c.strokeStyle='#ececf0';c.beginPath();c.moveTo(pad,y+rowH/2-1);c.lineTo(canvas.width-pad,y+rowH/2-1);c.stroke();c.font='14px sans-serif';c.fillStyle=it.completed?'#999':'#303039';const label=(it.emoji||userDefaultEmoji)+' '+(it.time?(it.endTime?'['+it.time+'~'+it.endTime+'] ':'['+it.time+'] '):'')+(it.text||'');c.fillText(label.slice(0,34),pad+10,y+4);const left=Math.max(0,Math.round((r.start-start)/86400000)),right=Math.min(count-1,Math.round((r.end-start)/86400000));const x=gx+left*colW+3,w=Math.max(10,(right-left+1)*colW-6);c.fillStyle=it.completed?'#d8d9df':'#cfe3ff';c.fillRect(x,y-15,w,28);c.strokeStyle=it.completed?'#b8bac2':'#86b9f2';c.strokeRect(x,y-15,w,28);if(w>75){c.save();c.beginPath();c.rect(x+5,y-13,w-10,24);c.clip();c.fillStyle='#245b96';c.font='12px sans-serif';c.fillText(it.text||'',x+8,y+3);c.restore();}});
+      rows.forEach((r,i)=>{const y=pad+headH+i*rowH+24,it=r.item;c.strokeStyle='#ececf0';c.beginPath();c.moveTo(pad,y+rowH/2-1);c.lineTo(canvas.width-pad,y+rowH/2-1);c.stroke();c.font='14px sans-serif';c.fillStyle=it.completed?'#999':'#303039';const label=(it.emoji||userDefaultEmoji)+' '+(it.time?(it.endTime?'['+it.time+'~'+it.endTime+'] ':'['+it.time+'] '):'')+(it.text||'');c.fillText(label.slice(0,34),pad+10,y+4);const left=Math.max(0,Math.round((r.start-start)/86400000)),right=Math.min(count-1,Math.round((r.end-start)/86400000));const x=gx+left*colW+3,w=Math.max(10,(right-left+1)*colW-6);c.fillStyle=it.completed?'#d8d9df':'#cfe3ff';c.fillRect(x,y-11,w,20);c.strokeStyle=it.completed?'#b8bac2':'#86b9f2';c.strokeRect(x,y-11,w,20);if(w>75){c.save();c.beginPath();c.rect(x+5,y-9,w-10,16);c.clip();c.fillStyle='#245b96';c.font='12px sans-serif';c.fillText(it.text||'',x+8,y+3);c.restore();}});
       if(!rows.length){c.fillStyle='#777';c.font='18px sans-serif';c.fillText('這段日期沒有已排定的事項',pad+15,pad+headH+35);}
       timelinePreviewDataUrl=canvas.toDataURL('image/png');
       document.getElementById('timeline-preview-image').src=timelinePreviewDataUrl;
