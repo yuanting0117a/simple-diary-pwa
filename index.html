@@ -662,11 +662,11 @@
 
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">資料備份與還原：</div>
       <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <button type="button" class="btn btn-primary" id="export-backup-btn" style="flex:1;">⬇️ 匯出文字備份</button>
-        <button type="button" class="btn" id="import-backup-btn" style="flex:1;">⬆️ 匯入文字備份</button>
-        <input type="file" id="import-backup-file" accept=".txt,text/plain,.json,application/json" style="display:none;">
+        <button type="button" class="btn btn-primary" id="export-backup-btn" style="flex:1;">⬇️ 匯出備份</button>
+        <button type="button" class="btn" id="import-backup-btn" style="flex:1;">⬆️ 匯入備份</button>
+        <input type="file" id="import-backup-file" accept="application/json,.json" style="display:none;">
       </div>
-      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">使用 TXT 文字檔保存每筆記事的個別日期、時間、模式及重複設定；也可匯入舊版 JSON 備份。</div>
+      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">支援 JSON 備份轉移；匯入時可選擇合併或取代，建議優先使用合併。</div>
       <div class="input-btns" style="margin-top:14px;">
         <button type="button" class="btn btn-primary" id="save-settings-btn" style="flex:1;">儲存設定</button>
         <button type="button" class="btn" id="close-settings-btn" style="flex:1;">關閉</button>
@@ -1646,109 +1646,27 @@
     });
 
 
-    // TXT 文字備份：每筆事項獨立保存完整屬性；同時保留舊版 JSON 匯入相容性
-    function escapeTxtValue(value) {
-      return String(value ?? '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n');
-    }
-    function unescapeTxtValue(value) {
-      return String(value ?? '').replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
-    }
-    function exportDiaryTxt() {
-      const lines = [
-        '# 簡潔記事文字備份 v1',
-        '# 每個 [事項] 區塊代表一筆記事；請保留欄位名稱以確保可完整還原',
-        '預設圖示=' + escapeTxtValue(userDefaultEmoji),
-        '常用圖示=' + emojiPresetList.map(escapeTxtValue).join(',')
-      ];
-      db.forEach(item => {
-        lines.push('', '[事項]');
-        lines.push('內容=' + escapeTxtValue(item.text));
-        lines.push('圖示=' + escapeTxtValue(item.emoji || ''));
-        lines.push('日期=' + escapeTxtValue(item.date || ''));
-        lines.push('結束日期=' + escapeTxtValue(item.endDate || ''));
-        lines.push('開始時間=' + escapeTxtValue(item.time || ''));
-        lines.push('結束時間=' + escapeTxtValue(item.endTime || ''));
-        lines.push('模式=' + escapeTxtValue(item.taskType || 'fixed-multi'));
-        lines.push('完成=' + (item.completed ? '是' : '否'));
-        lines.push('自動複習=' + (item.autoReview ? '是' : '否'));
-        lines.push('群組=' + escapeTxtValue(item.groupId || ''));
-        lines.push('重複=' + (item.repeat ? '是' : '否'));
-        if (item.repeat) {
-          lines.push('重複模式=' + escapeTxtValue(item.repeat.mode || ''));
-          lines.push('重複結束類型=' + escapeTxtValue(item.repeat.type || 'none'));
-          lines.push('重複次數=' + escapeTxtValue(item.repeat.count ?? ''));
-          lines.push('重複截止日期=' + escapeTxtValue(item.repeat.untilDate || ''));
-        }
-        lines.push('---');
-      });
-      const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    // JSON 備份：保留既有 LOCAL_DIARY / DEFAULT_EMOJI / EMOJI_PRESETS 資料格式
+    document.getElementById('export-backup-btn').addEventListener('click', () => {
+      const backup = {
+        app: '簡潔記事',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        data: db,
+        defaultEmoji: userDefaultEmoji,
+        emojiPresets: emojiPresetList
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = '簡潔記事備份-' + new Date().toISOString().slice(0, 10) + '.txt';
+      link.download = '簡潔記事備份-' + new Date().toISOString().slice(0, 10) + '.json';
       document.body.appendChild(link);
       link.click();
       link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
+      URL.revokeObjectURL(url);
+    });
 
-    function parseDiaryTxt(source) {
-      const records = [];
-      let current = null;
-      let defaultEmoji = '';
-      let emojiPresets = [];
-      source.replace(/^\uFEFF/, '').split(/\r?\n/).forEach(rawLine => {
-        const line = rawLine.trimEnd();
-        if (!line || line.startsWith('#')) return;
-        if (line === '[事項]') {
-          if (current) records.push(current);
-          current = {};
-          return;
-        }
-        if (line === '---') {
-          if (current) records.push(current);
-          current = null;
-          return;
-        }
-        const eq = line.indexOf('=');
-        if (eq < 0) return;
-        const key = line.slice(0, eq).trim();
-        const value = line.slice(eq + 1);
-        if (!current) {
-          if (key === '預設圖示') defaultEmoji = unescapeTxtValue(value);
-          if (key === '常用圖示') emojiPresets = value ? value.split(',').map(unescapeTxtValue) : [];
-          return;
-        }
-        current[key] = unescapeTxtValue(value);
-      });
-      if (current) records.push(current);
-      const importedDB = records.map((r, index) => {
-        if (typeof r['內容'] !== 'string' || !r['內容'].trim()) throw new Error('第 ' + (index + 1) + ' 筆缺少內容');
-        const repeat = r['重複'] === '是' ? {
-          mode: r['重複模式'] || r['模式'] || 'fixed-multi',
-          type: r['重複結束類型'] || 'none',
-          count: parseInt(r['重複次數'], 10) || 4,
-          untilDate: r['重複截止日期'] || ''
-        } : null;
-        return {
-          id: Date.now() + index,
-          text: r['內容'],
-          emoji: r['圖示'] || '',
-          date: r['日期'] || '',
-          endDate: r['結束日期'] || '',
-          time: r['開始時間'] || '',
-          endTime: r['結束時間'] || '',
-          taskType: r['模式'] || 'fixed-multi',
-          completed: r['完成'] === '是',
-          autoReview: r['自動複習'] === '是',
-          groupId: r['群組'] || null,
-          repeat
-        };
-      });
-      return { data: importedDB, defaultEmoji, emojiPresets };
-    }
-
-    document.getElementById('export-backup-btn').addEventListener('click', exportDiaryTxt);
     document.getElementById('import-backup-btn').addEventListener('click', () => {
       document.getElementById('import-backup-file').click();
     });
@@ -1757,28 +1675,17 @@
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       try {
-        const source = await file.text();
-        let parsed;
-        if (/^\\s*[\\[{]/.test(source)) {
-          const legacy = JSON.parse(source);
-          parsed = {
-            data: Array.isArray(legacy) ? legacy : legacy && legacy.data,
-            defaultEmoji: legacy && legacy.defaultEmoji,
-            emojiPresets: legacy && legacy.emojiPresets
-          };
-        } else {
-          parsed = parseDiaryTxt(source);
-        }
-        const importedDB = parsed.data;
+        const parsed = JSON.parse(await file.text());
+        const importedDB = Array.isArray(parsed) ? parsed : parsed && parsed.data;
         if (!Array.isArray(importedDB) || importedDB.some(item => !item || typeof item !== 'object' || typeof item.text !== 'string')) {
-          throw new Error('文字備份格式不正確，請選擇由簡潔記事匯出的備份檔');
+          throw new Error('備份格式不正確');
         }
-        const choice = prompt('選擇匯入方式：\\n輸入 1：合併資料（保留現有記事、略過重複項目）\\n輸入 2：取代資料（以備份內容完整取代）\\n\\n請輸入 1 或 2：', '1');
+        const choice = prompt('選擇匯入方式：\n輸入 1：合併資料（保留現有記事、略過重複項目）\n輸入 2：取代資料（以備份內容完整取代）\n\n請輸入 1 或 2：', '1');
         if (choice !== '1' && choice !== '2') return;
         if (choice === '2' && !confirm('確定要取代這台裝置目前的全部記事嗎？建議先匯出目前資料。')) return;
 
         if (choice === '1') {
-          const duplicateKey = item => [item.text, item.date || '', item.time || '', item.endTime || '', item.endDate || '', item.taskType || '', JSON.stringify(item.repeat || null)].join('|');
+          const duplicateKey = item => [item.text, item.date || '', item.time || '', item.endTime || '', item.endDate || '', item.taskType || ''].join('|');
           const existingKeys = new Set(db.map(duplicateKey));
           let nextId = db.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
           let addedCount = 0;
@@ -1786,13 +1693,16 @@
             const key = duplicateKey(item);
             if (existingKeys.has(key)) return;
             const copy = { ...item, id: nextId++ };
-            if (copy.groupId) copy.groupId = 'import_' + nextId + '_' + copy.groupId;
             db.push(copy);
             existingKeys.add(key);
             addedCount++;
           });
-          if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) userDefaultEmoji = parsed.defaultEmoji;
-          if (Array.isArray(parsed.emojiPresets)) emojiPresetList = Array.from(new Set([...emojiPresetList, ...parsed.emojiPresets.filter(x => typeof x === 'string')]));
+          if (!Array.isArray(parsed) && parsed) {
+            if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) userDefaultEmoji = parsed.defaultEmoji;
+            if (Array.isArray(parsed.emojiPresets)) {
+              emojiPresetList = Array.from(new Set([...emojiPresetList, ...parsed.emojiPresets.filter(x => typeof x === 'string')]));
+            }
+          }
           localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
           localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji);
           localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList));
@@ -1800,15 +1710,17 @@
           saveAndRender();
           alert('合併完成！新增 ' + addedCount + ' 筆，略過 ' + (importedDB.length - addedCount) + ' 筆重複記事。');
         } else {
-          db = importedDB.map((item, index) => ({ ...item, id: Date.now() + index }));
-          if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) userDefaultEmoji = parsed.defaultEmoji;
-          if (Array.isArray(parsed.emojiPresets)) emojiPresetList = parsed.emojiPresets.filter(x => typeof x === 'string');
+          db = importedDB;
+          if (!Array.isArray(parsed) && parsed) {
+            if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) userDefaultEmoji = parsed.defaultEmoji;
+            if (Array.isArray(parsed.emojiPresets)) emojiPresetList = parsed.emojiPresets.filter(x => typeof x === 'string');
+          }
           localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
           localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji);
           localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList));
           settingsModalOverlay.classList.remove('show');
           saveAndRender();
-          alert('文字備份還原成功！');
+          alert('備份取代匯入成功！');
         }
       } catch (error) {
         alert('無法匯入備份：' + error.message);
