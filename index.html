@@ -753,12 +753,12 @@
     </div>
   </div>
 
+  <div id="list-view"></div>
+
   <div class="section-box" id="todo-box">
     <div class="section-header">📌 待辦事項 (未排定時間)</div>
     <ul class="item-list" id="todo-list"></ul>
   </div>
-
-  <div id="list-view"></div>
 
   <div id="timeline-view" style="display: none;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 16px 8px 16px;">
@@ -1390,7 +1390,10 @@
 
         const ul = document.createElement('ul');
         ul.className = 'item-list';
-        (dateMap[d] || []).forEach(item => {
+        (dateMap[d] || []).slice().sort((a, b) =>
+          (a.time || '9999').localeCompare(b.time || '9999')
+          || String(a.id).localeCompare(String(b.id))
+        ).forEach(item => {
           ul.appendChild(createItemRow(item));
         });
         card.appendChild(ul);
@@ -1491,7 +1494,16 @@
 
       const currMonthMM = String(viewMonth + 1).padStart(2, '0');
       const expandedItems = getExpandedItems();
-      const monthItems = expandedItems.filter(x => x.date && x.date.substring(0, 2) === currMonthMM);
+      const monthItems = expandedItems
+        .filter(x => x.date && x.date.substring(0, 2) === currMonthMM)
+        .sort((a, b) => {
+          const deadlineA = a.endDate || a.date;
+          const deadlineB = b.endDate || b.date;
+          return deadlineA.localeCompare(deadlineB)
+            || a.date.localeCompare(b.date)
+            || (a.time || '9999').localeCompare(b.time || '9999')
+            || String(a.id).localeCompare(String(b.id));
+        });
 
       if (monthItems.length === 0) {
         const emptyHint = document.createElement('div');
@@ -1503,10 +1515,8 @@
         let nextRowIndex = 0;
 
         monthItems.forEach(item => {
-          if (rowMap[item.text] === undefined) {
-            rowMap[item.text] = nextRowIndex;
-            nextRowIndex++;
-          }
+          rowMap[item.id] = nextRowIndex;
+          nextRowIndex++;
         });
 
         monthItems.forEach(item => {
@@ -1522,7 +1532,7 @@
           const leftPos = (startDayNum - 1) * colWidth + 4;
           const barWidth = (spanDays * colWidth) - 8;
 
-          const rowIndex = rowMap[item.text];
+          const rowIndex = rowMap[item.id];
           const topOffset = 10 + (rowIndex * 28);
 
           const bar = document.createElement('div');
@@ -1763,7 +1773,7 @@
           if(cs<=ce&&b>=start&&a<=end)rows.push({item,start:cs,end:ce});
         }
       });
-      rows.sort((a,b)=>a.start-b.start);
+      rows.sort((a,b)=>(a.end-b.end)||(a.start-b.start)||((a.item.time||'9999').localeCompare(b.item.time||'9999'))||String(a.item.id).localeCompare(String(b.item.id)));
       const pad=24,labelW=300,colW=48,headH=90,rowH=34;
       const canvas=document.createElement('canvas');
       canvas.width=pad*2+labelW+count*colW;canvas.height=pad*2+headH+Math.max(1,rows.length)*rowH;
