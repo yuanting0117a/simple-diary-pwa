@@ -1677,25 +1677,51 @@
       try {
         const parsed = JSON.parse(await file.text());
         const importedDB = Array.isArray(parsed) ? parsed : parsed && parsed.data;
-        if (!Array.isArray(importedDB) || importedDB.some(item => !item || typeof item !== 'object')) {
+        if (!Array.isArray(importedDB) || importedDB.some(item => !item || typeof item !== 'object' || typeof item.text !== 'string')) {
           throw new Error('備份格式不正確');
         }
-        if (!confirm('匯入備份會取代這台裝置目前的記事資料。建議先匯出目前資料。確定要繼續嗎？')) return;
-        db = importedDB;
-        if (!Array.isArray(parsed) && parsed) {
-          if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) {
-            userDefaultEmoji = parsed.defaultEmoji;
+        const choice = prompt('選擇匯入方式：\n輸入 1：合併資料（保留現有記事、略過重複項目）\n輸入 2：取代資料（以備份內容完整取代）\n\n請輸入 1 或 2：', '1');
+        if (choice !== '1' && choice !== '2') return;
+        if (choice === '2' && !confirm('確定要取代這台裝置目前的全部記事嗎？建議先匯出目前資料。')) return;
+
+        if (choice === '1') {
+          const duplicateKey = item => [item.text, item.date || '', item.time || '', item.endTime || '', item.endDate || '', item.taskType || ''].join('|');
+          const existingKeys = new Set(db.map(duplicateKey));
+          let nextId = db.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+          let addedCount = 0;
+          importedDB.forEach(item => {
+            const key = duplicateKey(item);
+            if (existingKeys.has(key)) return;
+            const copy = { ...item, id: nextId++ };
+            db.push(copy);
+            existingKeys.add(key);
+            addedCount++;
+          });
+          if (!Array.isArray(parsed) && parsed) {
+            if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) userDefaultEmoji = parsed.defaultEmoji;
+            if (Array.isArray(parsed.emojiPresets)) {
+              emojiPresetList = Array.from(new Set([...emojiPresetList, ...parsed.emojiPresets.filter(x => typeof x === 'string')]));
+            }
           }
-          if (Array.isArray(parsed.emojiPresets)) {
-            emojiPresetList = parsed.emojiPresets.filter(x => typeof x === 'string');
+          localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
+          localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji);
+          localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList));
+          settingsModalOverlay.classList.remove('show');
+          saveAndRender();
+          alert('合併完成！新增 ' + addedCount + ' 筆，略過 ' + (importedDB.length - addedCount) + ' 筆重複記事。');
+        } else {
+          db = importedDB;
+          if (!Array.isArray(parsed) && parsed) {
+            if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) userDefaultEmoji = parsed.defaultEmoji;
+            if (Array.isArray(parsed.emojiPresets)) emojiPresetList = parsed.emojiPresets.filter(x => typeof x === 'string');
           }
+          localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
+          localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji);
+          localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList));
+          settingsModalOverlay.classList.remove('show');
+          saveAndRender();
+          alert('備份取代匯入成功！');
         }
-        localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
-        localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji);
-        localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList));
-        settingsModalOverlay.classList.remove('show');
-        saveAndRender();
-        alert('備份匯入成功！');
       } catch (error) {
         alert('無法匯入備份：' + error.message);
       } finally {
