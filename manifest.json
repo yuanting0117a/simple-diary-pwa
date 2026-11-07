@@ -1,0 +1,19 @@
+{
+  "name": "簡潔記事",
+  "short_name": "簡潔記事",
+  "description": "簡單記錄待辦事項、日期與行程。",
+  "lang": "zh-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f7f9",
+  "theme_color": "#f7f7f9",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
