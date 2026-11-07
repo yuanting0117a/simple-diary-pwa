@@ -1288,7 +1288,7 @@
 
     function render() {
       todoList.innerHTML = '';
-      const todos = db.filter(x => !x.date && !x.completed);
+      const todos = db.filter(x => !x.date);
       todos.forEach(item => { todoList.appendChild(createItemRow(item)); });
 
       listView.innerHTML = '';
