@@ -473,6 +473,19 @@
       color: var(--text-main);
     }
 
+    .cal-cell-date.today-date {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      min-height: 24px;
+      padding: 2px 5px;
+      border: 1px solid #ff3b30;
+      border-radius: 6px;
+      color: #ff3b30;
+      background: #fff;
+    }
+
     .cal-item {
       background: #eef6ff;
       color: var(--primary-color);
@@ -1500,8 +1513,10 @@
         const cell = document.createElement('div');
         cell.className = 'cal-cell';
         const dateStr = String(month + 1).padStart(2, '0') + String(day).padStart(2, '0');
+        const today = new Date();
+        const isToday = year === today.getFullYear() && month === today.getMonth() && day === today.getDate();
 
-        cell.innerHTML = `<div class="cal-cell-date">${day}</div>`;
+        cell.innerHTML = `<div class="cal-cell-date ${isToday ? 'today-date' : ''}">${day}</div>`;
         
         const items = expandedItems.filter(x => {
           if (!x.date) return false;
