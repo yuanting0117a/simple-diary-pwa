@@ -547,6 +547,30 @@
       background: #f0f0f5;
     }
 
+    .gantt-week-divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #c7c7cc;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .gantt-day-col.week-start { border-left: 1px solid #c7c7cc; }
+    .cal-item { cursor: pointer; }
+    .detail-modal {
+      background: #fff; border-radius: 14px; width: 90%; max-width: 360px;
+      padding: 18px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .detail-name {
+      font-size: 1.05rem; font-weight: 700; line-height: 1.5;
+      overflow-wrap: anywhere; margin-bottom: 14px;
+    }
+    .detail-line {
+      font-size: 0.9rem; color: #55555d; padding: 7px 0;
+      border-top: 1px solid #f0f0f5;
+    }
+
     .picker-modal {
       background: #fff;
       border-radius: 14px;
@@ -680,6 +704,18 @@
       <div style="display:flex; gap:6px; margin-top:12px;">
         <button type="button" class="btn btn-primary" id="picker-confirm" style="flex:1;">確認選取</button>
         <button type="button" class="btn" id="picker-cancel" style="flex:1;">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="item-detail-overlay">
+    <div class="detail-modal">
+      <div class="modal-title">事項詳細</div>
+      <div class="detail-name" id="item-detail-name"></div>
+      <div class="detail-line" id="item-detail-date"></div>
+      <div class="detail-line" id="item-detail-time" style="display:none;"></div>
+      <div class="input-btns">
+        <button type="button" class="btn btn-primary" id="item-detail-close" style="flex:1;">關閉</button>
       </div>
     </div>
   </div>
@@ -1342,7 +1378,8 @@
           if (hasRepeat) repeatBadge = ' 🔄';
         }
 
-        header.innerText = `${d.substring(0, 2)}/${d.substring(2, 4)} ${d === todayMMDD ? ' (今天)' : ''}${repeatBadge}`;
+        const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+        header.innerText = `${d.substring(0, 2)}/${d.substring(2, 4)}（星期${weekdayNames[dateObj.getDay()]}）${d === todayMMDD ? ' (今天)' : ''}${repeatBadge}`;
         card.appendChild(header);
 
         const ul = document.createElement('ul');
@@ -1420,13 +1457,22 @@
 
       for (let day = 1; day <= daysInMonth; day++) {
         const col = document.createElement('div');
-        col.className = `gantt-day-col ${isCurrentMonth && day === todayDateNum ? 'today-head' : ''}`;
+        const weekday = new Date(viewYear, viewMonth, day).getDay();
+        col.className = `gantt-day-col ${weekday === 1 && day > 1 ? 'week-start' : ''} ${isCurrentMonth && day === todayDateNum ? 'today-head' : ''}`;
         if (isCurrentMonth && day === todayDateNum) {
           col.innerHTML = `<div class="today-marker-badge">${day}</div>`;
         } else {
           col.innerText = day;
         }
         ganttHeader.appendChild(col);
+      }
+
+      for (let day = 2; day <= daysInMonth; day++) {
+        if (new Date(viewYear, viewMonth, day).getDay() !== 1) continue;
+        const divider = document.createElement('div');
+        divider.className = 'gantt-week-divider';
+        divider.style.left = `${(day - 1) * colWidth}px`;
+        ganttBody.appendChild(divider);
       }
 
       if (isCurrentMonth) {
@@ -1485,11 +1531,10 @@
           else if (item.time) timeDisp = `[${item.time}] `;
 
           bar.innerHTML = `<span>${em} ${timeDisp}${item.text}</span>`;
-          
-          const realId = String(item.id).split('_rep_')[0];
+
           bar.onclick = (e) => {
             e.stopPropagation();
-            openEditModal(Number(realId));
+            showItemDetail(item, new Date(viewYear, viewMonth, startDayNum));
           };
 
           ganttBody.appendChild(bar);
@@ -1509,6 +1554,25 @@
       e.preventDefault();
       timelineDate.setMonth(timelineDate.getMonth() + 1);
       renderTimelineGantt();
+    });
+
+    function showItemDetail(item, dateObj) {
+      const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+      const dateText = `${dateObj.getFullYear()}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${String(dateObj.getDate()).padStart(2,'0')}（星期${weekdayNames[dateObj.getDay()]}）`;
+      document.getElementById('item-detail-name').textContent = item.text || '（未命名事項）';
+      document.getElementById('item-detail-date').textContent = '日期：' + dateText;
+      const timeLine = document.getElementById('item-detail-time');
+      const timeText = item.time ? (item.endTime ? item.time + ' ～ ' + item.endTime : item.time) : '';
+      timeLine.textContent = timeText ? '時間：' + timeText : '';
+      timeLine.style.display = timeText ? 'block' : 'none';
+      document.getElementById('item-detail-overlay').classList.add('show');
+    }
+
+    document.getElementById('item-detail-close').addEventListener('click', () => {
+      document.getElementById('item-detail-overlay').classList.remove('show');
+    });
+    document.getElementById('item-detail-overlay').addEventListener('click', (event) => {
+      if (event.target.id === 'item-detail-overlay') event.currentTarget.classList.remove('show');
     });
 
     function renderCalendar() {
@@ -1566,7 +1630,14 @@
         items.forEach(it => {
           const em = it.emoji || userDefaultEmoji;
           const compClass = it.completed ? 'completed' : '';
-          cell.innerHTML += `<div class="cal-item ${compClass}">${em} ${it.text}</div>`;
+          const entry = document.createElement('div');
+          entry.className = `cal-item ${compClass}`;
+          entry.textContent = `${em} ${it.text || ''}`;
+          entry.addEventListener('click', (event) => {
+            event.stopPropagation();
+            showItemDetail(it, new Date(year, month, day));
+          });
+          cell.appendChild(entry);
         });
 
         bodyGrid.appendChild(cell);
