@@ -1560,7 +1560,7 @@
       const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
       const baseYear = dateObj.getFullYear();
       const parseItemDate = (value, fallback) => {
-        if (!value || !/^\\d{4}$/.test(value)) return fallback;
+        if (!value || !/^\d{4}$/.test(value)) return fallback;
         const month = Number(value.slice(0, 2)) - 1;
         const day = Number(value.slice(2, 4));
         const parsed = new Date(baseYear, month, day);
