@@ -658,9 +658,6 @@
           <label><input type="radio" name="repeat-end" value="date"> 指定截止日期：<input type="text" id="repeat-until-input" placeholder="MMDD" style="width:55px; padding:2px;" maxlength="4"></label>
         </div>
 
-        <div style="margin-top:8px;">
-          <label><input type="checkbox" id="chk-auto-review"> 📖 完成後自動新增「複習」待辦</label>
-        </div>
       </div>
 
       <div class="input-btns">
@@ -825,7 +822,6 @@
     const inText = document.getElementById('in-text');
     const toggleRepeatBtn = document.getElementById('toggle-repeat-btn');
     const repeatSubBox = document.getElementById('repeat-sub-box');
-    const chkAutoReview = document.getElementById('chk-auto-review');
     const errMsg = document.getElementById('err-msg');
     
     const modeMultiBtn = document.getElementById('mode-multi');
@@ -1097,7 +1093,6 @@
             item.endDate = ''; item.endTime = et; item.text = txt;
             item.completed = item.completed || false; item.repeat = repeatOpt;
             item.taskType = 'fixed-multi'; item.groupId = null;
-            item.autoReview = chkAutoReview.checked;
           }
         } else {
           datesArray.forEach((singleD, idx) => {
@@ -1106,7 +1101,6 @@
               endDate: '', endTime: et, text: txt,
               completed: false, repeat: repeatOpt,
               taskType: 'fixed-multi', groupId: null,
-              autoReview: chkAutoReview.checked
             });
           });
         }
@@ -1130,7 +1124,6 @@
             endDate: endDate, endTime: et, text: txt,
             completed: false, repeat: repeatOpt,
             taskType: selectedTaskMode, groupId: groupId,
-            autoReview: chkAutoReview.checked
           });
         }
       }
@@ -1170,16 +1163,6 @@
       if (item.taskType === 'pick-one' && item.groupId) {
         db.forEach(x => {
           if (x.groupId === item.groupId) x.completed = targetStatus;
-        });
-      }
-
-      if (targetStatus && item.autoReview) {
-        db.push({
-          id: Date.now() + 1,
-          emoji: '📖',
-          date: '', time: '', endDate: '', endTime: '',
-          text: `複習：${item.text}`,
-          completed: false, repeat: null, autoReview: false
         });
       }
 
@@ -1231,7 +1214,6 @@
         toggleRepeatBtn.innerText = '🔁 設定每週重複 (預設顯示 1 個月)';
       }
 
-      chkAutoReview.checked = !!item.autoReview;
       renderModalEmojiPicker();
       inputModalOverlay.classList.add('show');
     }
