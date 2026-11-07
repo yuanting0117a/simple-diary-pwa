@@ -1643,7 +1643,7 @@
       for(let day=1;day<=days;day++){
         const d=new Date(y,m,day), key=dateInputValue(d), cell=document.createElement('button');
         cell.type='button'; cell.className='picker-cell'; cell.textContent=day;
-        const occupied=timelinePickerHasItems(d), selected=timelinePickerStart&&d>=timelinePickerStart&&timelinePickerEnd&&d<=timelinePickerEnd;
+        const occupied=timelinePickerHasItems(d), selected=!!timelinePickerStart&&(timelinePickerEnd?(d>=timelinePickerStart&&d<=timelinePickerEnd):(d.getTime()===timelinePickerStart.getTime()));
         cell.style.cssText='border:1px solid '+(occupied?'#1684e8':'transparent')+';'+(occupied?'font-weight:700;':'')+(selected?'background:#dceeff;color:#075ca8;':'')+'min-height:38px;padding:8px 0;';
         if(occupied) cell.title='這天有記事';
         cell.addEventListener('click',()=>{
