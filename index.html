@@ -1225,6 +1225,7 @@
     document.getElementById('tab-list').addEventListener('click', (e) => {
       e.preventDefault();
       currentView = 'list'; switchTab('tab-list');
+      openInputModalBtn.style.display = 'flex';
       listView.style.display = 'block'; timelineView.style.display = 'none';
       calendarContainer.style.display = 'none'; todoBox.style.display = 'block';
     });
@@ -1232,6 +1233,7 @@
     document.getElementById('tab-cal').addEventListener('click', (e) => {
       e.preventDefault();
       currentView = 'cal'; switchTab('tab-cal');
+      openInputModalBtn.style.display = 'none';
       listView.style.display = 'none'; timelineView.style.display = 'none';
       calendarContainer.style.display = 'block'; todoBox.style.display = 'block';
       renderCalendar();
@@ -1240,6 +1242,7 @@
     document.getElementById('tab-timeline').addEventListener('click', (e) => {
       e.preventDefault();
       currentView = 'timeline'; switchTab('tab-timeline');
+      openInputModalBtn.style.display = 'none';
       listView.style.display = 'none'; calendarContainer.style.display = 'none';
       timelineView.style.display = 'block'; todoBox.style.display = 'none';
       renderTimelineGantt();
