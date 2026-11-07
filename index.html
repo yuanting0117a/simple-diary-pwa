@@ -666,7 +666,7 @@
         <button type="button" class="btn" id="import-backup-btn" style="flex:1;">⬆️ 匯入備份</button>
         <input type="file" id="import-backup-file" accept="application/json,.json" style="display:none;">
       </div>
-      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">備份檔可用來轉移資料；請妥善保存，避免資料遺失。</div>
+      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">支援 JSON 備份轉移；匯入時可選擇合併或取代，建議優先使用合併。</div>
       <div class="input-btns" style="margin-top:14px;">
         <button type="button" class="btn btn-primary" id="save-settings-btn" style="flex:1;">儲存設定</button>
         <button type="button" class="btn" id="close-settings-btn" style="flex:1;">關閉</button>
@@ -1731,8 +1731,13 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js').catch(error => {
+        navigator.serviceWorker.register('./service-worker.js').then(registration => {
+          registration.update().catch(() => {});
+        }).catch(error => {
           console.warn('Service Worker 註冊失敗：', error);
+        });
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
         });
       });
     }
