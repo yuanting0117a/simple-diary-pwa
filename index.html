@@ -733,7 +733,7 @@
         <span style="font-size:0.85rem; font-weight:bold; color:var(--text-sub);" id="timeline-month-label">時間軸</span>
         <button type="button" class="btn" id="timeline-next-m">›</button>
       </div>
-      <button type="button" class="btn" id="timeline-rotate-btn">⛶ 展開時間軸</button>
+      <button type="button" class="btn" id="open-timeline-export">🖼️ 匯出時間軸圖片</button>
     </div>
     <div class="gantt-wrapper" id="gantt-wrapper">
       <div class="gantt-header-row" id="gantt-header"></div>
@@ -741,6 +741,7 @@
     </div>
   </div>
 
+<div class="modal-overlay" id="timeline-export-overlay"><div class="modal" style="max-width:440px;"><div class="modal-title">🖼️ 匯出時間軸圖片</div><div style="font-size:.85rem;margin-bottom:10px;">選擇開始與結束日期，將範圍內的日期和所有事項排成同一張長圖。</div><label for="timeline-export-start">開始日期</label><input type="date" id="timeline-export-start" style="width:100%;margin:5px 0 10px;"><label for="timeline-export-end">結束日期</label><input type="date" id="timeline-export-end" style="width:100%;margin:5px 0 10px;"><div style="font-size:.72rem;color:var(--text-sub);line-height:1.5;margin-bottom:10px;">目前記事只記錄月日、不記錄年份；選擇的年份用於排列日期，記事會依月日套用到所選年份。最多可匯出 366 天。</div><div style="display:flex;gap:8px;"><button type="button" class="btn btn-primary" id="download-timeline-image" style="flex:1;">產生 PNG 長圖</button><button type="button" class="btn" id="cancel-timeline-export" style="flex:1;">取消</button></div></div></div>
   <div id="calendar-container" style="display: none;">
     <div class="cal-controls">
       <button type="button" class="btn" id="cal-prev">‹</button>
@@ -1619,13 +1620,48 @@
 
     setupRotateButton('rotate-btn', calendarContainer);
 
-    // 時間軸只展開內部捲動框，不旋轉整個頁面，避免月份列與按鈕被裁切。
-    const timelineExpandBtn = document.getElementById('timeline-rotate-btn');
-    const ganttWrapper = document.getElementById('gantt-wrapper');
-    timelineExpandBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const expanded = ganttWrapper.classList.toggle('timeline-expanded');
-      timelineExpandBtn.innerText = expanded ? '⤢ 縮小時間軸' : '⛶ 展開時間軸';
+    const timelineExportOverlay = document.getElementById('timeline-export-overlay');
+    const timelineExportStart = document.getElementById('timeline-export-start');
+    const timelineExportEnd = document.getElementById('timeline-export-end');
+    const dateInputValue = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    document.getElementById('open-timeline-export').addEventListener('click',()=>{
+      const s=new Date(timelineDate.getFullYear(),timelineDate.getMonth(),1);
+      timelineExportStart.value=dateInputValue(s);
+      timelineExportEnd.value=dateInputValue(new Date(s.getFullYear(),s.getMonth()+1,0));
+      timelineExportOverlay.classList.add('show');
+    });
+    document.getElementById('cancel-timeline-export').addEventListener('click',()=>timelineExportOverlay.classList.remove('show'));
+    document.getElementById('download-timeline-image').addEventListener('click',()=>{
+      if(!timelineExportStart.value||!timelineExportEnd.value){alert('請先選擇日期範圍。');return;}
+      const start=new Date(timelineExportStart.value+'T00:00:00'),end=new Date(timelineExportEnd.value+'T00:00:00');
+      const count=Math.round((end-start)/86400000)+1;
+      if(count<1){alert('結束日期不可早於開始日期。');return;}
+      if(count>366){alert('一次最多匯出 366 天，請縮短日期範圍。');return;}
+      const asDate=(md,y)=>{if(!md||md.length!==4)return null;const m=Number(md.slice(0,2))-1,d=Number(md.slice(2));const x=new Date(y,m,d);return x.getMonth()===m&&x.getDate()===d?x:null;};
+      const rows=[];
+      getExpandedItems().forEach(item=>{
+        if(!item.date)return;
+        for(let y=start.getFullYear();y<=end.getFullYear();y++){
+          const a=asDate(item.date,y);if(!a)continue;
+          let b=asDate(item.endDate||item.date,y)||a;
+          if(b<a)b=asDate(item.endDate||item.date,y+1)||b;
+          const cs=a<start?start:a,ce=b>end?end:b;
+          if(cs<=ce&&b>=start&&a<=end)rows.push({item,start:cs,end:ce});
+        }
+      });
+      rows.sort((a,b)=>a.start-b.start);
+      const pad=24,labelW=300,colW=48,headH=90,rowH=48;
+      const canvas=document.createElement('canvas');
+      canvas.width=pad*2+labelW+count*colW;canvas.height=pad*2+headH+Math.max(1,rows.length)*rowH;
+      if(canvas.width>30000||canvas.height>30000){alert('圖片尺寸過大，請縮短日期範圍或減少事項數量。');return;}
+      const c=canvas.getContext('2d');c.fillStyle='#f1f2f5';c.fillRect(0,0,canvas.width,canvas.height);c.fillStyle='#fff';c.fillRect(pad,pad,canvas.width-pad*2,canvas.height-pad*2);
+      c.fillStyle='#202027';c.font='bold 30px sans-serif';c.fillText('簡潔記事｜時間軸',pad+14,pad+38);c.font='16px sans-serif';c.fillStyle='#777780';c.fillText(timelineExportStart.value+' ～ '+timelineExportEnd.value,pad+14,pad+66);
+      const gx=pad+labelW;c.fillStyle='#eceff4';c.fillRect(gx,pad+headH-20,count*colW,30);c.font='12px sans-serif';c.textAlign='center';
+      for(let i=0;i<count;i++){const d=new Date(start.getTime()+i*86400000),x=gx+i*colW;c.fillStyle='#555560';c.fillText((d.getMonth()+1)+'/'+d.getDate(),x+colW/2,pad+headH);if(d.getDate()===1||i===0){c.strokeStyle='#c5c7ce';c.beginPath();c.moveTo(x,pad+headH-20);c.lineTo(x,canvas.height-pad);c.stroke();}}
+      c.textAlign='left';
+      rows.forEach((r,i)=>{const y=pad+headH+i*rowH+24,it=r.item;c.strokeStyle='#ececf0';c.beginPath();c.moveTo(pad,y+rowH/2-1);c.lineTo(canvas.width-pad,y+rowH/2-1);c.stroke();c.font='14px sans-serif';c.fillStyle=it.completed?'#999':'#303039';const label=(it.emoji||userDefaultEmoji)+' '+(it.time?(it.endTime?'['+it.time+'~'+it.endTime+'] ':'['+it.time+'] '):'')+(it.text||'');c.fillText(label.slice(0,34),pad+10,y+4);const left=Math.max(0,Math.round((r.start-start)/86400000)),right=Math.min(count-1,Math.round((r.end-start)/86400000));const x=gx+left*colW+3,w=Math.max(10,(right-left+1)*colW-6);c.fillStyle=it.completed?'#d8d9df':'#cfe3ff';c.fillRect(x,y-15,w,28);c.strokeStyle=it.completed?'#b8bac2':'#86b9f2';c.strokeRect(x,y-15,w,28);if(w>75){c.save();c.beginPath();c.rect(x+5,y-13,w-10,24);c.clip();c.fillStyle='#245b96';c.font='12px sans-serif';c.fillText(it.text||'',x+8,y+3);c.restore();}});
+      if(!rows.length){c.fillStyle='#777';c.font='18px sans-serif';c.fillText('這段日期沒有已排定的事項',pad+15,pad+headH+35);}
+      canvas.toBlob(blob=>{if(!blob){alert('圖片產生失敗，請縮短日期範圍後再試。');return;}const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='簡潔記事時間軸-'+timelineExportStart.value+'-至-'+timelineExportEnd.value+'.png';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);timelineExportOverlay.classList.remove('show');},'image/png');
     });
 
     // 月曆照片匯出：可跨年份累積選取月份，輸出為單張 PNG 長圖。
