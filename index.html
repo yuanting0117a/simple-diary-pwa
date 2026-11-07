@@ -563,6 +563,20 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.16);
     }
 
+    /* 放大時將還原鈕移到 body，避免受月曆容器與捲動影響。 */
+    .calendar-restore-floating {
+      position: fixed !important;
+      top: auto !important;
+      right: 16px !important;
+      bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+      left: auto !important;
+      z-index: 2000 !important;
+      min-height: 44px;
+      padding: 10px 16px !important;
+      white-space: nowrap !important;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.22);
+    }
+
     .calendar-expanded-active {
       position: fixed !important;
       inset: 0 !important;
@@ -1596,11 +1610,29 @@
       });
     }
 
-    // 月曆改為直向全螢幕放大，不再旋轉內容，避免手機畫面文字側倒。
-    document.getElementById('rotate-btn').addEventListener('click', (e) => {
+    // 放大時把還原鈕移出月曆容器，固定在視窗右下角，不受月曆捲動與排版影響。
+    const calendarRestoreButton = document.getElementById('rotate-btn');
+    let calendarRestorePlaceholder = null;
+    calendarRestoreButton.addEventListener('click', (e) => {
       e.preventDefault();
-      const expanded = calendarContainer.classList.toggle('calendar-expanded-active');
-      document.getElementById('rotate-btn').innerText = expanded ? '縮小月曆' : '⛶ 放大月曆';
+      const expanded = !calendarContainer.classList.contains('calendar-expanded-active');
+      if (expanded) {
+        calendarContainer.classList.add('calendar-expanded-active');
+        calendarRestorePlaceholder = document.createComment('calendar restore button position');
+        calendarRestoreButton.parentNode.insertBefore(calendarRestorePlaceholder, calendarRestoreButton);
+        document.body.appendChild(calendarRestoreButton);
+        calendarRestoreButton.classList.add('calendar-restore-floating');
+        calendarRestoreButton.innerText = '縮小月曆';
+      } else {
+        calendarContainer.classList.remove('calendar-expanded-active');
+        calendarRestoreButton.classList.remove('calendar-restore-floating');
+        if (calendarRestorePlaceholder && calendarRestorePlaceholder.parentNode) {
+          calendarRestorePlaceholder.parentNode.insertBefore(calendarRestoreButton, calendarRestorePlaceholder);
+          calendarRestorePlaceholder.remove();
+        }
+        calendarRestorePlaceholder = null;
+        calendarRestoreButton.innerText = '⛶ 放大月曆';
+      }
     });
     setupRotateButton('timeline-rotate-btn', timelineView);
 
