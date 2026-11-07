@@ -1558,7 +1558,23 @@
 
     function showItemDetail(item, dateObj) {
       const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
-      const dateText = `${dateObj.getFullYear()}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${String(dateObj.getDate()).padStart(2,'0')}（星期${weekdayNames[dateObj.getDay()]}）`;
+      const baseYear = dateObj.getFullYear();
+      const parseItemDate = (value, fallback) => {
+        if (!value || !/^\\d{4}$/.test(value)) return fallback;
+        const month = Number(value.slice(0, 2)) - 1;
+        const day = Number(value.slice(2, 4));
+        const parsed = new Date(baseYear, month, day);
+        return parsed.getMonth() === month && parsed.getDate() === day ? parsed : fallback;
+      };
+      const startDate = parseItemDate(item.date, dateObj);
+      let endDate = parseItemDate(item.endDate || item.date, startDate);
+      if (endDate < startDate) {
+        endDate = new Date(endDate.getFullYear() + 1, endDate.getMonth(), endDate.getDate());
+      }
+      const formatDate = d => `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}（星期${weekdayNames[d.getDay()]}）`;
+      const dateText = startDate.getTime() === endDate.getTime()
+        ? formatDate(startDate)
+        : formatDate(startDate) + ' ～ ' + formatDate(endDate);
       document.getElementById('item-detail-name').textContent = item.text || '（未命名事項）';
       document.getElementById('item-detail-date').textContent = '日期：' + dateText;
       const timeLine = document.getElementById('item-detail-time');
