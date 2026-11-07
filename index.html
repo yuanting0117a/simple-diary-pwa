@@ -1697,7 +1697,7 @@
       let current = null;
       let defaultEmoji = '';
       let emojiPresets = [];
-      source.replace(/^\\uFEFF/, '').split(/\\r?\\n/).forEach(rawLine => {
+      source.replace(/^\uFEFF/, '').split(/\r?\n/).forEach(rawLine => {
         const line = rawLine.trimEnd();
         if (!line || line.startsWith('#')) return;
         if (line === '[事項]') {
