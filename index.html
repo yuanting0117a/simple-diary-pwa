@@ -631,6 +631,14 @@
     .greeting-emoji { font-size: 2.4rem; margin-bottom: 10px; }
     .greeting-title { font-size: 1.25rem; font-weight: 800; margin-bottom: 8px; }
     .greeting-message { color: #666; font-size: 0.92rem; line-height: 1.6; margin-bottom: 20px; }
+    .today-tasks-modal { text-align: left; max-height: 82vh; display: flex; flex-direction: column; }
+    .today-tasks-modal .greeting-emoji, .today-tasks-modal .greeting-title, .today-tasks-modal .greeting-message { text-align: center; }
+    .today-tasks-list { list-style: none; overflow-y: auto; max-height: 48vh; }
+    .today-task-row { padding: 11px 4px; border-bottom: 1px solid var(--border-color); font-size: 0.95rem; line-height: 1.45; overflow-wrap: anywhere; }
+    .today-task-row:last-child { border-bottom: none; }
+    .today-task-time { color: var(--text-sub); font-size: 0.82rem; margin-right: 6px; }
+    .today-task-done { color: var(--completed-color); text-decoration: line-through; }
+    #today-tasks-overlay { z-index: 1001; }
 
     .select-list {
       max-height: 180px;
@@ -668,6 +676,16 @@
       <div class="greeting-title" id="daily-greeting-title">早安！</div>
       <div class="greeting-message" id="daily-greeting-message">新的一天，慢慢來也沒關係。</div>
       <button type="button" class="btn btn-primary" id="daily-greeting-close" style="width:100%;">知道了</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="today-tasks-overlay">
+    <div class="greeting-modal today-tasks-modal">
+      <div class="greeting-emoji">📋</div>
+      <div class="greeting-title">今天要做的事項</div>
+      <div class="greeting-message" id="today-tasks-date"></div>
+      <ul id="today-tasks-list" class="today-tasks-list"></ul>
+      <button type="button" class="btn btn-primary" id="today-tasks-close" style="width:100%; margin-top:12px;">知道了</button>
     </div>
   </div>
 
@@ -2260,14 +2278,59 @@
 
     render();
 
-    // 每天第一次開啟時顯示一次招呼，依照裝置當地時間切換內容。
+    // 每次開啟都顯示今天有日期的事項；沒有日期的待辦不列入。
+    function showTodayTasks() {
+      const now = new Date();
+      const todayMMDD = String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+      const items = [];
+      getExpandedItems().forEach(item => {
+        let current = item.date;
+        const end = item.endDate || item.date;
+        let guard = 0;
+        while (current <= end && guard < 7) {
+          if (current === todayMMDD) items.push(item);
+          current = addDaysToMMDD(current, 1);
+          guard++;
+        }
+      });
+      items.sort((a, b) => (a.time || '9999').localeCompare(b.time || '9999') || String(a.id).localeCompare(String(b.id)));
+
+      const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+      document.getElementById('today-tasks-date').textContent =
+        `${now.getMonth() + 1}/${now.getDate()}（星期${weekdayNames[now.getDay()]}）`;
+      const list = document.getElementById('today-tasks-list');
+      list.innerHTML = '';
+      if (!items.length) {
+        const empty = document.createElement('li');
+        empty.className = 'today-task-row';
+        empty.textContent = '今天沒有排定事項，享受一下空檔吧！';
+        list.appendChild(empty);
+      } else {
+        items.forEach(item => {
+          const row = document.createElement('li');
+          row.className = 'today-task-row';
+          const parts = [];
+          if (item.emoji || userDefaultEmoji) parts.push(item.emoji || userDefaultEmoji);
+          if (item.time) parts.push(item.endTime ? item.time + '～' + item.endTime : item.time);
+          const prefix = parts.join(' ');
+          row.textContent = (prefix ? prefix + '　' : '') + (item.text || '（未命名事項）') + (item.completed ? '　✓' : '');
+          if (item.completed) row.classList.add('today-task-done');
+          list.appendChild(row);
+        });
+      }
+      document.getElementById('today-tasks-overlay').classList.add('show');
+    }
+
+    // 每天第一次開啟時顯示一次招呼；招呼關閉後接著顯示今日事項。
+    let greetingShown = false;
     (function showDailyGreeting() {
-      const todayKey = new Date().getFullYear() + '-' +
-        String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
-        String(new Date().getDate()).padStart(2, '0');
+      const now = new Date();
+      const todayKey = now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0');
       if (localStorage.getItem('DAILY_GREETING_DATE') === todayKey) return;
 
-      const hour = new Date().getHours();
+      const hour = now.getHours();
       let greeting;
       if (hour >= 5 && hour < 12) {
         greeting = { emoji: '☀️', title: '早安！', message: '新的一天開始了，祝你今天順順利利！' };
@@ -2281,12 +2344,18 @@
       document.getElementById('daily-greeting-title').textContent = greeting.title;
       document.getElementById('daily-greeting-message').textContent = greeting.message;
       localStorage.setItem('DAILY_GREETING_DATE', todayKey);
+      greetingShown = true;
       document.getElementById('daily-greeting-overlay').classList.add('show');
     })();
 
     document.getElementById('daily-greeting-close').addEventListener('click', () => {
       document.getElementById('daily-greeting-overlay').classList.remove('show');
+      showTodayTasks();
     });
+    document.getElementById('today-tasks-close').addEventListener('click', () => {
+      document.getElementById('today-tasks-overlay').classList.remove('show');
+    });
+    if (!greetingShown) showTodayTasks();
   </script>
 </body>
 </html>
