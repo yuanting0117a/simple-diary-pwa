@@ -275,6 +275,11 @@
 
     .item-row:last-child { border-bottom: none; }
 
+    .overdue-group { background: #fff7f7; border: 1px solid #ffd6d6; border-radius: 8px; margin: 6px 0; overflow: hidden; }
+    .overdue-group summary { padding: 9px 10px; color: #d93025; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+    .overdue-group .item-list { padding: 0 10px; }
+    .overdue-row .item-text:not(.completed) { color: #d93025; }
+
     .item-content {
       flex: 1;
       display: flex;
@@ -776,12 +781,17 @@
     </div>
   </div>
 
-  <div id="list-view"></div>
-
   <div class="section-box" id="todo-box">
     <div class="section-header">📌 待辦事項 (未排定時間)</div>
     <ul class="item-list" id="todo-list"></ul>
   </div>
+
+  <div class="section-box" id="overdue-box" style="display:none;">
+    <div class="section-header">🔴 逾期事項（依日期收合）</div>
+    <div id="overdue-list"></div>
+  </div>
+
+  <div id="list-view"></div>
 
   <div id="timeline-view" style="display: none;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 16px 8px 16px;">
@@ -1358,6 +1368,9 @@
       const todos = db.filter(x => !x.date);
       todos.forEach(item => { todoList.appendChild(createItemRow(item)); });
 
+      const overdueList = document.getElementById('overdue-list');
+      const overdueBox = document.getElementById('overdue-box');
+      overdueList.innerHTML = '';
       listView.innerHTML = '';
       const dateMap = {};
       const expandedItems = getExpandedItems();
@@ -1365,7 +1378,7 @@
       expandedItems.forEach(x => {
         const startDate = x.date;
         const endDate = x.endDate || startDate;
-        
+
         let curr = startDate;
         let safetyCounter = 0;
         while (curr <= endDate && safetyCounter < 7) {
@@ -1379,15 +1392,47 @@
       const today = new Date();
       const currentYear = today.getFullYear();
       const todayMMDD = String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+      today.setHours(0, 0, 0, 0);
 
-      const dates = Array.from(new Set([...Object.keys(dateMap), todayMMDD])).sort();
+      const allDates = Array.from(new Set([...Object.keys(dateMap), todayMMDD])).sort();
+      const overdueDates = allDates.filter(d => {
+        if (d === todayMMDD) return false;
+        const dateObj = new Date(currentYear, parseInt(d.substring(0, 2), 10) - 1, parseInt(d.substring(2, 4), 10));
+        return dateObj < today;
+      });
+      const upcomingDates = allDates.filter(d => !overdueDates.includes(d));
 
-      let lastWeek = -1;
-      dates.forEach(d => {
+      overdueDates.forEach(d => {
         const mm = parseInt(d.substring(0, 2), 10) - 1;
         const dd = parseInt(d.substring(2, 4), 10);
         const dateObj = new Date(currentYear, mm, dd);
-        
+        const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+        const group = document.createElement('details');
+        group.className = 'overdue-group';
+        const summary = document.createElement('summary');
+        summary.textContent = `📅 ${d.substring(0, 2)}/${d.substring(2, 4)}（星期${weekdayNames[dateObj.getDay()]}） · ${dateMap[d].length} 項`;
+        group.appendChild(summary);
+        const ul = document.createElement('ul');
+        ul.className = 'item-list';
+        dateMap[d].slice().sort((a, b) =>
+          (a.time || '9999').localeCompare(b.time || '9999')
+          || String(a.id).localeCompare(String(b.id))
+        ).forEach(item => {
+          const row = createItemRow(item);
+          row.classList.add('overdue-row');
+          ul.appendChild(row);
+        });
+        group.appendChild(ul);
+        overdueList.appendChild(group);
+      });
+      overdueBox.style.display = overdueDates.length ? 'block' : 'none';
+
+      let lastWeek = -1;
+      upcomingDates.forEach(d => {
+        const mm = parseInt(d.substring(0, 2), 10) - 1;
+        const dd = parseInt(d.substring(2, 4), 10);
+        const dateObj = new Date(currentYear, mm, dd);
+
         const weekNum = getWeekNumberNumber(dateObj);
         if (lastWeek !== -1 && weekNum !== lastWeek) {
           const div = document.createElement('div');
@@ -1402,7 +1447,7 @@
 
         const header = document.createElement('div');
         header.className = 'date-header';
-        
+
         let repeatBadge = '';
         if (dateMap[d]) {
           const hasRepeat = dateMap[d].some(item => item.repeat);
