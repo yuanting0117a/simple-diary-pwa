@@ -13,7 +13,7 @@ if (hasFirebaseConfig) {
   firebase.messaging();
 }
 
-const CACHE_NAME = 'simple-diary-pwa-v34';
+const CACHE_NAME = 'simple-diary-pwa-v35';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icons/icon.svg', './firebase-config.js'];
 
 self.addEventListener('install', event => {
