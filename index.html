@@ -1398,12 +1398,26 @@
       const dateMap = {};
       const expandedItems = getExpandedItems();
 
-      // 條列視圖只在「最後期限日」顯示一次，不把多日事項拆成每天一筆。
+      // 未完成事項在可執行期間的每一天顯示；完成事項只留在最後期限日。
       expandedItems.forEach(item => {
-        const deadline = item.endDate || item.date;
-        if (!deadline) return;
-        if (!dateMap[deadline]) dateMap[deadline] = [];
-        dateMap[deadline].push(item);
+        const startDate = item.date;
+        const endDate = item.endDate || startDate;
+        if (!startDate) return;
+
+        if (item.completed) {
+          if (!dateMap[endDate]) dateMap[endDate] = [];
+          dateMap[endDate].push(item);
+          return;
+        }
+
+        let curr = startDate;
+        let safetyCounter = 0;
+        while (curr <= endDate && safetyCounter < 7) {
+          if (!dateMap[curr]) dateMap[curr] = [];
+          dateMap[curr].push(item);
+          curr = addDaysToMMDD(curr, 1);
+          safetyCounter++;
+        }
       });
 
       const allDates = Array.from(new Set([...Object.keys(dateMap), todayMMDD])).sort();
