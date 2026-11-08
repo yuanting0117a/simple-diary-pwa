@@ -2586,16 +2586,7 @@
 
     // 定位只用於即時天氣與行政區反查；不保存精確座標。
     const LOCATION_CONSENT_KEY = 'LOCATION_CONSENT';
-    function updateLocationSettingStatus() {
-      const status = document.getElementById('location-setting-status');
-      if (!status) return;
-      const consent = localStorage.getItem(LOCATION_CONSENT_KEY);
-      status.textContent = consent === 'granted'
-        ? '定位已啟用：每日問候會自動查詢天氣與所在地。'
-        : consent === 'denied'
-          ? '定位已關閉：不會自動取得位置，也不會顯示天氣。'
-          : '尚未設定：首次問候時會詢問是否啟用定位。';
-    }
+    // 定位狀態顯示由設定暫存區的 updateLocationSettingStatus 統一管理。
 
     function showLocationConsentActions(show) {
       const actions = document.getElementById('location-consent-actions');
