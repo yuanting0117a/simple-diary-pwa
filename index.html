@@ -672,7 +672,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.8</div>
+      <div class="app-version">v36.9</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1171,6 +1171,56 @@
       render();
     });
 
+    function expandForOverlapCheck(item) {
+      const instances = [{ ...item }];
+      if (!item.repeat || !item.date) return instances;
+      let maxTimes = item.repeat.type === 'count' ? item.repeat.count : 4;
+      maxTimes = Math.max(1, Math.min(100, Number(maxTimes) || 4));
+      for (let week = 1; week < maxTimes; week++) {
+        const nextStart = addDaysToMMDD(item.date, week * 7);
+        if (item.repeat.type === 'date' && item.repeat.untilDate && nextStart > item.repeat.untilDate) break;
+        instances.push({
+          ...item,
+          date: nextStart,
+          endDate: item.endDate ? addDaysToMMDD(item.endDate, week * 7) : '',
+          isRepeatInstance: true
+        });
+      }
+      return instances;
+    }
+
+    function overlapRange(a, b) {
+      if (!a.date || !b.date) return null;
+      const year = new Date().getFullYear();
+      const toDate = value => new Date(year, Number(value.slice(0, 2)) - 1, Number(value.slice(2, 4)));
+      const aStart = toDate(a.date);
+      const bStart = toDate(b.date);
+      let aEnd = toDate(a.endDate || a.date);
+      let bEnd = toDate(b.endDate || b.date);
+      if (aEnd < aStart) aEnd.setFullYear(aEnd.getFullYear() + 1);
+      if (bEnd < bStart) bEnd.setFullYear(bEnd.getFullYear() + 1);
+      const start = aStart > bStart ? aStart : bStart;
+      const end = aEnd < bEnd ? aEnd : bEnd;
+      if (start > end) return null;
+      const fmt = date => String(date.getMonth() + 1).padStart(2, '0') + String(date.getDate()).padStart(2, '0');
+      return { start: fmt(start), end: fmt(end) };
+    }
+
+    function findDateOverlap(candidates) {
+      const existing = getExpandedItems().filter(item => !editingItemId || String(item.id).split('_rep_')[0] !== String(editingItemId));
+      const proposed = candidates.flatMap(expandForOverlapCheck);
+      const checks = [];
+      proposed.forEach((item, index) => {
+        existing.forEach(other => checks.push([item, other]));
+        proposed.slice(0, index).forEach(other => checks.push([item, other]));
+      });
+      for (const [item, other] of checks) {
+        const overlap = overlapRange(item, other);
+        if (overlap) return overlap;
+      }
+      return null;
+    }
+
     document.getElementById('add-btn').addEventListener('click', (e) => {
       e.preventDefault(); // 防範手機端 Submit 觸發刷新
       const em = inEmoji.value.trim() || userDefaultEmoji;
@@ -1199,6 +1249,18 @@
       } : null;
 
       const groupId = effectiveTaskMode === 'pick-one' ? `group_${Date.now()}` : null;
+
+      // 新增或修改前，檢查本次日期及每週重複展開後是否與既有事項重疊。
+      const candidates = effectiveTaskMode === 'fixed-multi'
+        ? datesArray.filter(Boolean).map(singleD => ({ date: singleD, endDate: '', repeat: repeatOpt }))
+        : [{ date: datesArray[0], endDate: datesArray[datesArray.length - 1], repeat: repeatOpt }];
+      const overlap = findDateOverlap(candidates);
+      if (overlap) {
+        const rangeText = overlap.start === overlap.end ? overlap.start : overlap.start + '–' + overlap.end;
+        errMsg.innerText = '日期重疊：' + rangeText + ' 已有其他事項，請調整日期或重複設定。';
+        errMsg.style.display = 'block';
+        return;
+      }
 
       if (effectiveTaskMode === 'fixed-multi') {
         if (editingItemId) {
