@@ -1,20 +1,6 @@
-// Firebase Web Push integration. Firebase config is public web-app configuration only.
-importScripts('./firebase-config.js');
-
-const firebaseConfig = self.FIREBASE_CONFIG || {};
-const hasFirebaseConfig = firebaseConfig.apiKey && !firebaseConfig.apiKey.includes('請填入') &&
-  firebaseConfig.projectId && !firebaseConfig.projectId.includes('請填入');
-
-if (hasFirebaseConfig) {
-  importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
-  importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
-  firebase.initializeApp(firebaseConfig);
-  // Firebase Messaging registers the background push handler for this service worker.
-  firebase.messaging();
-}
-
-const CACHE_NAME = 'simple-diary-pwa-v35';
-const APP_SHELL = ['./', './index.html', './manifest.json', './icons/icon.svg', './firebase-config.js'];
+// Service worker for offline caching and PWA updates.
+const CACHE_NAME = 'simple-diary-pwa-v36';
+const APP_SHELL = ['./', './index.html', './manifest.json', './icons/icon.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
