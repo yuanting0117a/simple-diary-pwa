@@ -1398,7 +1398,11 @@
       const dateMap = {};
       const expandedItems = getExpandedItems();
 
-      // 未完成事項在可執行期間的每一天顯示；完成事項只留在最後期限日。
+      // 未完成事項只顯示今天起至最後期限的日期；期限已過則集中在最後期限日。
+      // 已完成事項只顯示在最後期限日。
+      const todayForItems = new Date();
+      todayForItems.setHours(0, 0, 0, 0);
+      const todayKeyForItems = String(todayForItems.getMonth() + 1).padStart(2, '0') + String(todayForItems.getDate()).padStart(2, '0');
       expandedItems.forEach(item => {
         const startDate = item.date;
         const endDate = item.endDate || startDate;
@@ -1410,7 +1414,14 @@
           return;
         }
 
-        let curr = startDate;
+        const endDateObj = new Date(todayForItems.getFullYear(), Number(endDate.slice(0, 2)) - 1, Number(endDate.slice(2, 4)));
+        if (endDateObj < todayForItems) {
+          if (!dateMap[endDate]) dateMap[endDate] = [];
+          dateMap[endDate].push(item);
+          return;
+        }
+
+        let curr = startDate < todayKeyForItems ? todayKeyForItems : startDate;
         let safetyCounter = 0;
         while (curr <= endDate && safetyCounter < 7) {
           if (!dateMap[curr]) dateMap[curr] = [];
