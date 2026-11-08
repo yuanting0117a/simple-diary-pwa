@@ -666,27 +666,31 @@
     .today-task-done { color: var(--completed-color); text-decoration: line-through; }
     #today-tasks-overlay { z-index: 1001; }
 
-    .default-emoji-row {
-      display: grid;
-      grid-template-columns: max-content minmax(0, 1fr) max-content;
+    .default-emoji-row,
+    .custom-emoji-row {
+      display: flex;
       align-items: center;
       gap: 7px;
       width: 100%;
-      margin: 0 0 5px;
+      margin: 0 0 6px;
     }
     .default-emoji-row label {
       font-size: .82rem;
       font-weight: 700;
       white-space: nowrap;
     }
-    .default-emoji-row input {
-      width: 100%;
+    .default-emoji-row input,
+    .custom-emoji-row input {
+      flex: 1;
+      width: 0;
       min-width: 0;
       margin: 0;
+    }
+    .default-emoji-row input {
       text-align: center;
       font-size: 1.2rem;
     }
-    .default-emoji-row button {
+    .custom-emoji-row button {
       padding: 6px 12px;
       white-space: nowrap;
     }
@@ -706,7 +710,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.21</div>
+      <div class="app-version">v36.22</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -842,9 +846,12 @@
       <div class="default-emoji-row">
         <label for="default-emoji-input">預設 Emoji</label>
         <input type="text" id="default-emoji-input" maxlength="2" placeholder="📌">
+      </div>
+      <div class="custom-emoji-row">
+        <input type="text" id="new-emoji-input" maxlength="2" placeholder="輸入要新增的 Emoji">
         <button type="button" class="btn btn-primary" id="add-custom-emoji-btn">新增</button>
       </div>
-      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:3px;">新增會將目前 Emoji 加入清單；點擊清單可設為預設，✕ 刪除</div>
+      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:3px;">下方清單是已加入的 Emoji；點擊可設為預設，✕ 刪除</div>
       <div class="emoji-picker-container" id="settings-emoji-list"></div>
 
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">📍 所在地與天氣：</div>
@@ -854,6 +861,9 @@
         <button type="button" class="btn" id="disable-location-btn" aria-pressed="false" style="flex:1;">🔴 關閉定位</button>
       </div>
       <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">按鈕選擇會先暫存；按底部「確認並儲存」才會套用。取消則完全還原。開啟定位時，儲存後瀏覽器才會詢問權限。</div>
+      <div id="test-center-entry" style="display:flex; justify-content:flex-end; margin:-5px 0 5px;">
+        <button type="button" id="test-center-open" aria-label="開啟管理測試功能" title="需輸入密碼" style="border:0; background:transparent; color:var(--text-sub); opacity:.35; font-size:0.62rem; padding:2px 4px; cursor:pointer;">測試</button>
+      </div>
       <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">定位只用於查詢所在地天氣與行政區名稱，不會保存精確座標；若曾在瀏覽器封鎖定位，需到網站權限設定重新允許。</div>
 
 
@@ -878,9 +888,6 @@
         <button type="button" class="btn btn-primary" id="test-weather-btn" style="width:100%; margin-bottom:6px;">🌦️ 測試定位與天氣</button>
         <div style="font-size:0.72rem; color:var(--text-sub);">測試不會更改每日問候紀錄或記事資料。關閉設定後會自動重新上鎖。</div>
         <button type="button" class="btn" id="test-center-lock-btn" style="width:100%; margin-top:8px;">🔒 鎖定測試功能</button>
-      </div>
-      <div id="test-center-entry" style="display:flex; justify-content:flex-end; margin-top:3px;">
-        <button type="button" id="test-center-open" aria-label="開啟管理測試功能" title="需輸入密碼" style="border:0; background:transparent; color:var(--text-sub); opacity:.35; font-size:0.62rem; padding:2px 4px; cursor:pointer;">測試</button>
       </div>
     </div>
   </div>
@@ -1195,9 +1202,9 @@
       const enabled = settingsDraftLocationConsent === 'granted';
       const disabled = settingsDraftLocationConsent === 'denied';
       status.textContent = enabled
-        ? '🟢 定位已選擇：開啟（儲存後會取得天氣與所在地）'
+        ? '定位開啟（儲存後會取得天氣與所在地）'
         : disabled
-          ? '🔴 定位已選擇：關閉（不會自動取得位置或天氣）'
+          ? '定位關閉（不會自動取得位置或天氣）'
           : '⚪ 尚未選擇：首次問候時會詢問是否啟用定位';
       status.style.background = enabled ? '#e8f5e9' : disabled ? '#ffebee' : '#f1f3f5';
       status.style.color = enabled ? '#1b5e20' : disabled ? '#b71c1c' : '#495057';
@@ -1274,12 +1281,14 @@
 
     document.getElementById('add-custom-emoji-btn').addEventListener('click', (e) => {
       e.preventDefault();
-      const val = defaultEmojiInput.value.trim();
+      const input = document.getElementById('new-emoji-input');
+      const val = input.value.trim();
       if (!val) return;
       if (!emojiPresetList.includes(val)) {
         emojiPresetList.push(val);
         renderSettingsEmojiList();
       }
+      input.value = '';
     });
 
     function saveEmojiPresets() {
