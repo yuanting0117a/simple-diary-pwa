@@ -59,7 +59,12 @@
 
     .app-title { font-size: 1.2rem; font-weight: 700; }
     .app-version { font-size: 0.72rem; color: #888; margin-left: auto; margin-right: 8px; white-space: nowrap; align-self: center; }
-    .header-actions { display: flex; gap: 6px; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .icon-btn { width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #d7dce5; border-radius: 12px; background: #fff; color: #343a46; font-size: 1.25rem; box-shadow: 0 2px 5px rgba(25,35,55,.10); cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+    .icon-btn:active { transform: scale(.93); box-shadow: 0 1px 2px rgba(25,35,55,.12); }
+    .icon-btn.edit-return { background: var(--primary-color); color: #fff; border-color: var(--primary-color); box-shadow: 0 3px 8px rgba(0,122,255,.28); }
+    .icon-btn.clean-action { color: #b5473c; background: #fff8f6; border-color: #f0d6d1; }
+    .icon-btn .icon-glyph { line-height: 1; }
 
     .btn {
       padding: 6px 10px;
@@ -666,11 +671,11 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.3</div>
+      <div class="app-version">v36.4</div>
       <div class="header-actions">
-        <button type="button" class="btn" id="clean-btn">刪除完成</button>
-        <button type="button" class="btn" id="edit-btn">編輯</button>
-        <button type="button" class="btn" id="settings-btn">⚙️ 設定</button>
+        <button type="button" class="btn icon-btn clean-action" id="clean-btn" title="刪除完成事項" aria-label="刪除完成事項"><span class="icon-glyph">▤</span></button>
+        <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><span class="icon-glyph">✎</span></button>
+        <button type="button" class="btn icon-btn" id="settings-btn" title="設定" aria-label="設定"><span class="icon-glyph">⚙</span></button>
       </div>
     </div>
     <div class="view-switch">
@@ -1327,9 +1332,10 @@
 
     function setEditingMode(enabled) {
       isEditing = enabled;
-      editBtn.textContent = isEditing ? '返回' : '編輯';
-      editBtn.classList.toggle('btn-primary', isEditing);
-      editBtn.classList.toggle('btn-active', isEditing);
+      editBtn.innerHTML = isEditing ? '<span class="icon-glyph">↩</span>' : '<span class="icon-glyph">✎</span>';
+      editBtn.title = isEditing ? '返回' : '編輯事項';
+      editBtn.setAttribute('aria-label', editBtn.title);
+      editBtn.classList.toggle('edit-return', isEditing);
       openInputModalBtn.textContent = isEditing ? '完成' : '＋';
       openInputModalBtn.classList.toggle('editing-done', isEditing);
       document.body.classList.toggle('editing', isEditing);
