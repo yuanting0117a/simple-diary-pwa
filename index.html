@@ -747,13 +747,6 @@
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">月曆匯出：</div>
       <button type="button" class="btn btn-primary" id="open-calendar-export" style="width:100%; margin-bottom:8px;">🖼️ 匯出月曆照片</button>
 
-      <div style="font-size:0.85rem; font-weight:bold; margin: 14px 0 6px 0;">🔔 手機推播提醒：</div>
-      <div style="font-size:0.75rem; color:var(--text-sub); line-height:1.5; margin-bottom:8px;" id="push-status">尚未設定推播服務。完成 Firebase 免費設定後即可啟用。</div>
-      <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <button type="button" class="btn btn-primary" id="enable-push-btn" style="flex:1;">啟用手機推播</button>
-        <button type="button" class="btn" id="disable-push-btn" style="flex:1;">關閉推播</button>
-      </div>
-      <div style="font-size:0.7rem; color:var(--text-sub); line-height:1.5;">啟用後，未完成且有日期的非重複事項會同步必要提醒資料；未填時間預設上午 9:00。雲端每 5 分鐘檢查一次，通知可能稍有延遲。</div>
       <div class="input-btns" style="margin-top:14px;">
         <button type="button" class="btn btn-primary" id="save-settings-btn" style="flex:1;">儲存設定</button>
         <button type="button" class="btn" id="close-settings-btn" style="flex:1;">關閉</button>
@@ -831,11 +824,6 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
-  <script src="./firebase-config.js"></script>
   <script>
     // 安全載入本地資料
     function loadDB() {
@@ -847,8 +835,6 @@
     }
 
     let db = loadDB();
-    let pushEnabled = localStorage.getItem('PUSH_ENABLED') === '1';
-    let pushUser = null;
     let userDefaultEmoji = localStorage.getItem('DEFAULT_EMOJI') || '📌';
     let emojiPresetList = JSON.parse(localStorage.getItem('EMOJI_PRESETS') || '["📌", "📝", "⭐", "🎯", "🔥", "💡", "☕", "✅", "📖"]');
     
@@ -1058,7 +1044,6 @@
 
     settingsBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      updatePushStatus();
       defaultEmojiInput.value = userDefaultEmoji;
       renderSettingsEmojiList();
       settingsModalOverlay.classList.add('show');
@@ -1195,258 +1180,7 @@
         console.error('LocalStorage 儲存受限', err);
       }
       render();
-      if (pushEnabled) syncPushReminders().catch(error => {
-        console.warn('推播提醒同步失敗：', error);
-        setPushStatus('推播同步暫時失敗，請確認網路與 Firebase 設定。');
-      });
     }
-
-    function firebaseConfigReady() {
-      const config = window.FIREBASE_CONFIG || self.FIREBASE_CONFIG;
-      const vapid = window.FIREBASE_VAPID_KEY || self.FIREBASE_VAPID_KEY;
-      return !!(config && config.apiKey && !config.apiKey.includes('請填入') &&
-        config.databaseURL && !config.databaseURL.includes('請填入') &&
-        config.projectId && !config.projectId.includes('請填入') &&
-        vapid && !vapid.includes('請填入'));
-    }
-
-    function setPushStatus(message) {
-      const el = document.getElementById('push-status');
-      if (el) el.textContent = message;
-    }
-
-    function updatePushStatus() {
-      if (!firebaseConfigReady()) {
-        setPushStatus('尚未設定 Firebase。請先依專案 PUSH_SETUP.md 完成免費專案設定；目前不會要求通知權限。');
-      } else if (pushEnabled) {
-        setPushStatus('推播已啟用：每天早上 6:30 彙整當天事項及無日期待辦；有時間的事項會提前 30 分鐘提醒，重複事項依時間軸日期提醒。');
-      } else {
-        setPushStatus('Firebase 已設定，尚未在此裝置啟用推播。');
-      }
-    }
-
-    function getPushFirebase() {
-      if (!firebaseConfigReady()) throw new Error('Firebase 設定尚未完成。');
-      if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG || self.FIREBASE_CONFIG);
-      return firebase;
-    }
-
-    async function getPushUser() {
-      const fb = getPushFirebase();
-      if (!fb.auth().currentUser) await fb.auth().signInAnonymously();
-      pushUser = fb.auth().currentUser;
-      return pushUser;
-    }
-
-    async function hashPushToken(token) {
-      const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-      return Array.from(new Uint8Array(bytes), value => value.toString(16).padStart(2, '0')).join('');
-    }
-
-    function pushDateKey(date) {
-      return String(date.getFullYear()) + String(date.getMonth() + 1).padStart(2, '0') + String(date.getDate()).padStart(2, '0');
-    }
-
-    function pushMMDD(date) {
-      return String(date.getMonth() + 1).padStart(2, '0') + String(date.getDate()).padStart(2, '0');
-    }
-
-    function parsePushMMDD(value, year) {
-      if (!/^\\d{4}$/.test(String(value || ''))) return null;
-      const month = Number(String(value).slice(0, 2));
-      const day = Number(String(value).slice(2, 4));
-      const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-      if (month < 1 || month > 12 || day < 1 || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
-      return date;
-    }
-
-    // 與時間軸 getExpandedItems() 使用相同的每週重複次數及截止條件。
-    function getPushOccurrences(item) {
-      if (!item || !item.date) return [];
-      const year = new Date().getFullYear();
-      const baseStart = parsePushMMDD(item.date, year);
-      if (!baseStart) return [];
-      let repeatCount = 1;
-      if (item.repeat) repeatCount = item.repeat.type === 'count'
-        ? Math.max(1, Number(item.repeat.count) || 4) : 4;
-
-      let spanDays = 0;
-      if (item.taskType === 'pick-one' && item.endDate) {
-        const end = parsePushMMDD(item.endDate, year);
-        if (end) {
-          const adjustedEnd = end < baseStart ? new Date(year + 1, end.getMonth(), end.getDate()) : end;
-          spanDays = Math.max(0, Math.min(6, Math.round((adjustedEnd - baseStart) / 86400000)));
-        }
-      }
-
-      const occurrences = [];
-      for (let week = 0; week < repeatCount; week++) {
-        const startDate = new Date(baseStart.getTime() + week * 7 * 86400000);
-        if (week > 0 && item.repeat && item.repeat.type === 'date' &&
-            item.repeat.untilDate && pushMMDD(startDate) > item.repeat.untilDate) break;
-        for (let day = 0; day <= spanDays; day++) {
-          occurrences.push(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + day));
-        }
-      }
-      return occurrences;
-    }
-
-    function pushItemTitle(item) {
-      return ((item.emoji || userDefaultEmoji) + ' ' + (item.text || '簡潔記事提醒')).trim();
-    }
-
-    function pushTimeLabel(item) {
-      const raw = String(item.time || '').replace(':', '');
-      if (!/^\\d{4}$/.test(raw)) return '';
-      return raw.slice(0, 2) + ':' + raw.slice(2, 4);
-    }
-
-    async function syncPushReminders() {
-      if (!pushEnabled || !firebaseConfigReady()) return;
-      const fb = getPushFirebase();
-      const user = await getPushUser();
-      const remindersRef = fb.database().ref('users/' + user.uid + '/reminders');
-      const snapshot = await remindersRef.once('value');
-      const existing = snapshot.val() || {};
-      const desired = {};
-      const now = new Date();
-      const nowMs = now.getTime();
-      const horizonDays = 35;
-      const digestItemsByDate = {};
-
-      // 建立時間軸上實際出現的每個日期；已完成事項不加入提醒。
-      db.forEach(item => {
-        if (!item || item.completed) return;
-        if (!item.date) return; // 無日期待辦只列入每天 06:30 的總提醒
-        getPushOccurrences(item).forEach(occurrenceDate => {
-          const dateKey = pushDateKey(occurrenceDate);
-          if (!digestItemsByDate[dateKey]) digestItemsByDate[dateKey] = [];
-          digestItemsByDate[dateKey].push(item);
-
-          // 有設定開始時間的事項，在該日開始前 30 分鐘提醒。
-          const timeLabel = pushTimeLabel(item);
-          if (!timeLabel) return;
-          const hour = Number(timeLabel.slice(0, 2));
-          const minute = Number(timeLabel.slice(3, 5));
-          if (hour > 23 || minute > 59) return;
-          const scheduled = new Date(occurrenceDate.getFullYear(), occurrenceDate.getMonth(),
-            occurrenceDate.getDate(), hour, minute, 0, 0);
-          scheduled.setMinutes(scheduled.getMinutes() - 30);
-          const scheduledAt = scheduled.getTime();
-          if (scheduledAt <= nowMs) return;
-          const id = 'item_' + String(item.id) + '_' + dateKey + '_minus30';
-          const title = ('⏰ 30 分鐘後：' + pushItemTitle(item)).slice(0, 80);
-          const body = '距離事項開始時間還有 30 分鐘。';
-          const previous = existing[id];
-          desired[id] = {
-            kind: 'item', scheduledAt, title, body,
-            sent: !!(previous && previous.sent && previous.scheduledAt === scheduledAt && previous.title === title)
-          };
-          if (desired[id].sent && previous.sentAt) desired[id].sentAt = previous.sentAt;
-        });
-      });
-
-      // 每天早上 06:30 送出當天事項摘要，無日期待辦也會每天列入。
-      const undatedItems = db.filter(item => item && !item.completed && !item.date);
-      for (let offset = 0; offset < horizonDays; offset++) {
-        const digestDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 6, 30, 0, 0);
-        const scheduledAt = digestDate.getTime();
-        if (scheduledAt <= nowMs) continue;
-        const dateKey = pushDateKey(digestDate);
-        const todays = (digestItemsByDate[dateKey] || []).slice();
-        const unique = new Map();
-        todays.forEach(item => unique.set(String(item.id), item));
-        const dated = Array.from(unique.values()).sort((a, b) =>
-          (pushTimeLabel(a) || '99:99').localeCompare(pushTimeLabel(b) || '99:99'));
-        if (!dated.length && !undatedItems.length) continue;
-
-        const datedLines = dated.map(item => {
-          const time = pushTimeLabel(item);
-          return (time ? time + ' ' : '') + pushItemTitle(item);
-        });
-        const undatedLines = undatedItems.map(item => '📌 ' + pushItemTitle(item));
-        const allLines = datedLines.concat(undatedLines);
-        const shown = allLines.slice(0, 5);
-        let body = shown.join('；');
-        if (allLines.length > shown.length) body += '；另有 ' + (allLines.length - shown.length) + ' 項';
-        body = body.slice(0, 180);
-        const id = 'daily_' + dateKey;
-        const title = '🌅 早安！今日共有 ' + allLines.length + ' 項事項';
-        const previous = existing[id];
-        desired[id] = {
-          kind: 'daily', scheduledAt, title: title.slice(0, 80), body,
-          sent: !!(previous && previous.sent && previous.scheduledAt === scheduledAt && previous.title === title && previous.body === body)
-        };
-        if (desired[id].sent && previous.sentAt) desired[id].sentAt = previous.sentAt;
-      }
-
-      const updates = {};
-      Object.keys(existing).forEach(id => {
-        if (!desired[id]) updates[id] = null;
-      });
-      Object.keys(desired).forEach(id => { updates[id] = desired[id]; });
-      if (Object.keys(updates).length) await remindersRef.update(updates);
-    }
-
-    async function enablePushNotifications() {
-      try {
-        if (!firebaseConfigReady()) {
-          alert('推播服務尚未設定。請先由家長協助依 PUSH_SETUP.md 建立 Firebase 免費專案並完成 GitHub Secrets 設定。');
-          updatePushStatus();
-          return;
-        }
-        if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-          alert('此瀏覽器不支援網頁推播，請使用 Android Chrome 並從主畫面安裝簡潔記事。');
-          return;
-        }
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          setPushStatus('尚未取得通知權限。請在 Android 設定中允許簡潔記事通知後再試。');
-          return;
-        }
-        const fb = getPushFirebase();
-        const user = await getPushUser();
-        const supported = await fb.messaging.isSupported();
-        if (!supported) throw new Error('此瀏覽器目前不支援 Firebase 網頁推播。');
-        const registration = await navigator.serviceWorker.ready;
-        const messaging = fb.messaging();
-        const vapid = window.FIREBASE_VAPID_KEY || self.FIREBASE_VAPID_KEY;
-        const token = await messaging.getToken({ vapidKey: vapid, serviceWorkerRegistration: registration });
-        if (!token) throw new Error('無法取得此裝置的推播識別碼。');
-        const tokenKey = await hashPushToken(token);
-        await fb.database().ref('users/' + user.uid + '/devices/' + tokenKey).set({
-          token, updatedAt: Date.now(), platform: 'android-web'
-        });
-        pushEnabled = true;
-        localStorage.setItem('PUSH_ENABLED', '1');
-        await syncPushReminders();
-        setPushStatus('推播已啟用！已同步每日 6:30 摘要及個別提前 30 分鐘提醒。');
-        alert('手機推播已啟用！提醒會由雲端定期檢查，實際送達可能稍有延遲。');
-      } catch (error) {
-        console.error('啟用推播失敗：', error);
-        setPushStatus('啟用失敗：' + (error.message || '請檢查 Firebase 設定與網路。'));
-        alert('啟用推播失敗：' + (error.message || '請檢查 Firebase 設定與網路。'));
-      }
-    }
-
-    async function disablePushNotifications() {
-      try {
-        if (firebaseConfigReady() && firebase.apps.length) {
-          const fb = getPushFirebase();
-          const user = await getPushUser();
-          await fb.database().ref('users/' + user.uid).remove();
-        }
-      } catch (error) {
-        console.warn('移除雲端推播資料失敗：', error);
-      }
-      pushEnabled = false;
-      localStorage.removeItem('PUSH_ENABLED');
-      updatePushStatus();
-      alert('已在此裝置關閉推播同步。');
-    }
-
-    document.getElementById('enable-push-btn').addEventListener('click', enablePushNotifications);
-    document.getElementById('disable-push-btn').addEventListener('click', disablePushNotifications);
 
     function addDaysToMMDD(mmdd, daysToAdd) {
       if (!mmdd || mmdd.length !== 4) return mmdd;
@@ -2456,13 +2190,6 @@
     }
 
     render();
-    updatePushStatus();
-    if (pushEnabled && firebaseConfigReady()) {
-      syncPushReminders().catch(error => {
-        console.warn('啟動時同步推播提醒失敗：', error);
-        setPushStatus('推播同步暫時失敗，請確認網路與 Firebase 設定。');
-      });
-    }
   </script>
 </body>
 </html>
