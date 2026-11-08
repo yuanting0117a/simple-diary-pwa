@@ -614,6 +614,19 @@
       padding: 16px;
     }
 
+    .greeting-modal {
+      background: #fff;
+      border-radius: 18px;
+      width: 86%;
+      max-width: 330px;
+      padding: 26px 20px 20px;
+      text-align: center;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.16);
+    }
+    .greeting-emoji { font-size: 2.4rem; margin-bottom: 10px; }
+    .greeting-title { font-size: 1.25rem; font-weight: 800; margin-bottom: 8px; }
+    .greeting-message { color: #666; font-size: 0.92rem; line-height: 1.6; margin-bottom: 20px; }
+
     .select-list {
       max-height: 180px;
       overflow-y: auto;
@@ -643,6 +656,15 @@
   </header>
 
   <button type="button" class="fab-btn" id="open-input-modal">＋</button>
+
+  <div class="modal-overlay" id="daily-greeting-overlay">
+    <div class="greeting-modal">
+      <div class="greeting-emoji" id="daily-greeting-emoji">☀️</div>
+      <div class="greeting-title" id="daily-greeting-title">早安！</div>
+      <div class="greeting-message" id="daily-greeting-message">新的一天，慢慢來也沒關係。</div>
+      <button type="button" class="btn btn-primary" id="daily-greeting-close" style="width:100%;">知道了</button>
+    </div>
+  </div>
 
   <div class="modal-overlay" id="input-modal-overlay">
     <div class="modal">
@@ -2192,6 +2214,34 @@
     }
 
     render();
+
+    // 每天第一次開啟時顯示一次招呼，依照裝置當地時間切換內容。
+    (function showDailyGreeting() {
+      const todayKey = new Date().getFullYear() + '-' +
+        String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
+        String(new Date().getDate()).padStart(2, '0');
+      if (localStorage.getItem('DAILY_GREETING_DATE') === todayKey) return;
+
+      const hour = new Date().getHours();
+      let greeting;
+      if (hour >= 5 && hour < 12) {
+        greeting = { emoji: '☀️', title: '早安！', message: '新的一天開始了，祝你今天順順利利！' };
+      } else if (hour >= 12 && hour < 18) {
+        greeting = { emoji: '🌤️', title: '午安！', message: '忙碌之餘也別忘了休息，慢慢來就好。' };
+      } else {
+        greeting = { emoji: '🌙', title: '晚安！', message: '今天也辛苦了，記得留一點時間給自己。' };
+      }
+
+      document.getElementById('daily-greeting-emoji').textContent = greeting.emoji;
+      document.getElementById('daily-greeting-title').textContent = greeting.title;
+      document.getElementById('daily-greeting-message').textContent = greeting.message;
+      localStorage.setItem('DAILY_GREETING_DATE', todayKey);
+      document.getElementById('daily-greeting-overlay').classList.add('show');
+    })();
+
+    document.getElementById('daily-greeting-close').addEventListener('click', () => {
+      document.getElementById('daily-greeting-overlay').classList.remove('show');
+    });
   </script>
 </body>
 </html>
