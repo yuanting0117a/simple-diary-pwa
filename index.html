@@ -681,7 +681,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.15</div>
+      <div class="app-version">v36.16</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -820,7 +820,7 @@
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">📍 所在地與天氣：</div>
       <div id="location-setting-status" style="font-size:0.78rem; color:var(--text-sub); margin-bottom:8px;">尚未設定定位。</div>
       <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <button type="button" class="btn btn-primary" id="enable-location-btn" style="flex:1;">允許／重新詢問</button>
+        <button type="button" class="btn btn-primary" id="enable-location-btn" style="flex:1;">確認啟用定位</button>
         <button type="button" class="btn" id="disable-location-btn" style="flex:1;">關閉定位</button>
       </div>
       <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">定位只用於查詢所在地天氣與行政區名稱，不會保存精確座標；若曾在瀏覽器封鎖定位，需到網站權限設定重新允許。</div>
@@ -2507,10 +2507,10 @@
       if (!status) return;
       const consent = localStorage.getItem(LOCATION_CONSENT_KEY);
       status.textContent = consent === 'granted'
-        ? '已允許定位：每日問候會顯示所在地天氣。'
+        ? '定位已啟用：每日問候會自動查詢天氣與所在地。'
         : consent === 'denied'
-          ? '目前未啟用定位：仍可正常使用記事功能。'
-          : '尚未詢問定位權限。';
+          ? '定位已關閉：不會自動取得位置，也不會顯示天氣。'
+          : '尚未設定：首次問候時會詢問是否啟用定位。';
     }
 
     function showLocationConsentActions(show) {
@@ -2655,11 +2655,13 @@
     document.getElementById('disable-location-btn').addEventListener('click', () => {
       localStorage.setItem(LOCATION_CONSENT_KEY, 'denied');
       showLocationConsentActions(false);
-      document.getElementById('weather-status').textContent = '定位已關閉。';
-      document.getElementById('weather-status').style.display = 'block';
+      const status = document.getElementById('weather-status');
+      status.textContent = '定位已關閉。之後不會自動取得位置或更新天氣；需要時可在設定重新啟用。';
+      status.style.display = 'block';
       document.getElementById('weather-main').style.display = 'none';
       document.getElementById('weather-details').style.display = 'none';
       document.getElementById('daily-greeting-message').textContent = '今天也要有美好的一天！';
+      document.getElementById('weather-location').textContent = '';
       updateLocationSettingStatus();
     });
 
@@ -2727,6 +2729,7 @@
       document.getElementById('weather-status').textContent = '問候畫面測試中…';
       document.getElementById('weather-main').style.display = 'none';
       document.getElementById('weather-details').style.display = 'none';
+      loadGreetingWeather();
       document.getElementById('daily-greeting-overlay').classList.add('show');
     });
     document.getElementById('test-weather-btn').addEventListener('click', () => {
@@ -2740,7 +2743,6 @@
       document.getElementById('weather-main').style.display = 'none';
       document.getElementById('weather-details').style.display = 'none';
       document.getElementById('daily-greeting-overlay').classList.add('show');
-      localStorage.setItem(LOCATION_CONSENT_KEY, 'granted');
       loadGreetingWeather();
     });
 
