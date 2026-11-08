@@ -2817,16 +2817,16 @@
       const now = new Date();
       let greeting;
       if (now.getHours() >= 5 && now.getHours() < 12) {
-        greeting = { emoji: '☀️', title: '早安！', message: '新的一天開始了，祝你今天順順利利！' };
+        greeting = { emoji: '☀️', title: '早安！', message: '今天是美好的一天！' };
       } else if (now.getHours() >= 12 && now.getHours() < 18) {
-        greeting = { emoji: '🌤️', title: '午安！', message: '忙碌之餘也別忘了休息，慢慢來就好。' };
+        greeting = { emoji: '🌤️', title: '午安！', message: '今天也要記得照顧好自己！' };
       } else {
-        greeting = { emoji: '🌙', title: '晚安！', message: '今天也辛苦了，記得留一點時間給自己。' };
+        greeting = { emoji: '🌙', title: '晚安！', message: '今天辛苦了，記得好好休息。' };
       }
       weatherTestMode = true;
       settingsModalOverlay.classList.remove('show');
       document.getElementById('daily-greeting-emoji').textContent = greeting.emoji;
-      document.getElementById('daily-greeting-title').textContent = '問候測試｜' + greeting.title;
+      document.getElementById('daily-greeting-title').textContent = greeting.title;
       document.getElementById('daily-greeting-message').textContent = greeting.message;
       document.getElementById('weather-status').style.display = 'block';
       document.getElementById('weather-status').textContent = '問候畫面測試中…';
