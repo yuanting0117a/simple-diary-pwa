@@ -1262,6 +1262,8 @@
     editBtn.addEventListener('click', (e) => {
       e.preventDefault();
       isEditing = !isEditing;
+      editBtn.textContent = isEditing ? '完成' : '編輯';
+      editBtn.classList.toggle('btn-primary', isEditing);
       editBtn.classList.toggle('btn-active', isEditing);
       document.body.classList.toggle('editing', isEditing);
     });
