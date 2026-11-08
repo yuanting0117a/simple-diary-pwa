@@ -668,11 +668,12 @@
 
     .default-emoji-row,
     .custom-emoji-row {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 7px;
-      width: 100%;
-      margin: 0 0 6px;
+      width: auto;
+      margin: 0 8px 6px 0;
+      vertical-align: middle;
     }
     .default-emoji-row label {
       font-size: .82rem;
@@ -696,9 +697,18 @@
       caret-color: transparent;
       cursor: default;
     }
+    .custom-emoji-row input {
+      flex: 0 0 52px;
+      width: 52px;
+      height: 34px;
+      padding: 4px;
+      text-align: center;
+      font-size: 1rem;
+    }
     .custom-emoji-row button {
-      padding: 6px 12px;
+      padding: 6px 9px;
       white-space: nowrap;
+      font-size: .8rem;
     }
 
     .select-list {
@@ -716,7 +726,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.23</div>
+      <div class="app-version">v36.24</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -854,7 +864,7 @@
         <input type="text" id="default-emoji-input" maxlength="2" placeholder="📌" readonly aria-label="目前預設 Emoji">
       </div>
       <div class="custom-emoji-row">
-        <input type="text" id="new-emoji-input" maxlength="2" placeholder="輸入要新增的 Emoji">
+        <input type="text" id="new-emoji-input" maxlength="2" placeholder="Emoji" aria-label="輸入要新增的 Emoji">
         <button type="button" class="btn btn-primary" id="add-custom-emoji-btn">新增</button>
       </div>
       <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:3px;">下方清單是已加入的 Emoji；點擊可設為預設，✕ 刪除</div>
