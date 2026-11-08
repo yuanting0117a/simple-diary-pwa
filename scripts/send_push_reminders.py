@@ -44,7 +44,7 @@ def main():
                         "body": str(reminder.get("body") or "有一項事項到了提醒時間。")[:180]
                     },
                     "webpush": {
-                        "notification": {"tag": "diary-" + str(rid), "renotify": False},
+                        "notification": {\n                            "title": str(reminder.get("title") or "簡潔記事提醒")[:80],\n                            "body": str(reminder.get("body") or "有一項事項到了提醒時間。")[:180],\n                            "icon": "https://yuanting0117a.github.io/simple-diary-pwa/icons/icon.svg",\n                            "tag": "diary-" + str(rid),\n                            "renotify": False\n                        },
                         "fcm_options": {"link": "https://yuanting0117a.github.io/simple-diary-pwa/"}
                     },
                     "data": {"reminderId": str(rid), "url": "https://yuanting0117a.github.io/simple-diary-pwa/"}
