@@ -1352,7 +1352,7 @@
       }
       isEditing = enabled;
       editBtn.innerHTML = isEditing ? '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 5a8 8 0 0 1 7.75 10h-2.1A6 6 0 0 0 7.1 8.4l2.5 2.5H3V4.3l2.7 2.7A7.96 7.96 0 0 1 12 5Z"/></svg>' : '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 5.5 4 4"/><path d="M4 20l4.2-.9L19 8.3a2.8 2.8 0 0 0-4-4L4.9 15.8 4 20Z"/></svg>';
-      editBtn.title = isEditing ? '返回' : '編輯事項';
+      editBtn.title = isEditing ? '復原到編輯開始' : '編輯事項';
       editBtn.setAttribute('aria-label', editBtn.title);
       editBtn.classList.toggle('edit-return', isEditing);
       openInputModalBtn.textContent = isEditing ? '完成' : '＋';
@@ -1362,8 +1362,14 @@
 
     editBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      if (isEditing) setEditingMode(false, false);
-      else setEditingMode(true);
+      if (isEditing) {
+        if (editingSnapshot) {
+          db = JSON.parse(JSON.stringify(editingSnapshot));
+          render();
+        }
+      } else {
+        setEditingMode(true);
+      }
     });
 
 
