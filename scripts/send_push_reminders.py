@@ -5,7 +5,7 @@ from google.auth.transport.requests import Request
 DB = os.environ["FIREBASE_DATABASE_URL"].rstrip("/")
 PROJECT = os.environ["FIREBASE_PROJECT_ID"]
 SA = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT_JSON"])
-SCOPES = ["https://www.googleapis.com/auth/firebase.messaging", "https://www.googleapis.com/auth/userinfo.email"]
+SCOPES = ["https://www.googleapis.com/auth/firebase.messaging", "https://www.googleapis.com/auth/firebase.database"]
 
 def call(url, method="GET", payload=None, token=None):
     headers = {"Content-Type": "application/json"}
