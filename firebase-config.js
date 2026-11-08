@@ -2,7 +2,7 @@
 self.FIREBASE_CONFIG = {
   apiKey: "AIzaSyALAms8aWAW7q1kZ_tVDkGuvewH5pmfiyA",
   authDomain: "simple-diary-push.firebaseapp.com",
-  databaseURL: "https://請填入專案-default-rtdb.firebaseio.com",
+  databaseURL: "https://simple-diary-push-default-rtdb.firebaseio.com",
   projectId: "simple-diary-push",
   storageBucket: "simple-diary-push.firebasestorage.app",
   messagingSenderId: "859507575772",
