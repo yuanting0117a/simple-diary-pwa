@@ -9,4 +9,4 @@ self.FIREBASE_CONFIG = {
   appId: "1:859507575772:web:6528233aad4877e9915d19",
   measurementId: "G-W9NFX2XHZC"
 };
-self.FIREBASE_VAPID_KEY = "請填入 Web Push 公開金鑰";
+self.FIREBASE_VAPID_KEY = "BG5t1mlZSNQ3xrT52RGg2jpPpqWwTuKJj9YZVHIfXhGsLaELq1_MSFZoBUx0DRZ3rPXIcos-HLf3vsdTvUJ-hQQ";
