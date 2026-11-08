@@ -1219,7 +1219,7 @@
       if (!firebaseConfigReady()) {
         setPushStatus('尚未設定 Firebase。請先依專案 PUSH_SETUP.md 完成免費專案設定；目前不會要求通知權限。');
       } else if (pushEnabled) {
-        setPushStatus('推播已在此裝置啟用。未完成且有日期的非重複事項會同步至雲端，預設提醒時間為上午 9:00。');
+        setPushStatus('推播已啟用：每天早上 6:30 彙整當天事項及無日期待辦；有時間的事項會提前 30 分鐘提醒，重複事項依時間軸日期提醒。');
       } else {
         setPushStatus('Firebase 已設定，尚未在此裝置啟用推播。');
       }
@@ -1243,24 +1243,62 @@
       return Array.from(new Uint8Array(bytes), value => value.toString(16).padStart(2, '0')).join('');
     }
 
-    function nextReminderTimestamp(item) {
-      const dateValue = item.taskType === 'pick-one' ? (item.endDate || item.date) : item.date;
-      if (!/^\d{4}$/.test(String(dateValue || ''))) return null;
-      const rawTime = String(item.time || '0900').replace(':', '').padStart(4, '0');
-      if (!/^\d{4}$/.test(rawTime)) return null;
-      const month = Number(dateValue.slice(0, 2));
-      const day = Number(dateValue.slice(2, 4));
-      const hour = Number(rawTime.slice(0, 2));
-      const minute = Number(rawTime.slice(2, 4));
-      if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
-      const now = new Date();
-      let target = new Date(now.getFullYear(), month - 1, day, hour, minute, 0, 0);
-      if (target.getMonth() !== month - 1 || target.getDate() !== day) return null;
-      if (target.getTime() <= now.getTime()) {
-        target = new Date(now.getFullYear() + 1, month - 1, day, hour, minute, 0, 0);
-        if (target.getMonth() !== month - 1 || target.getDate() !== day) return null;
+    function pushDateKey(date) {
+      return String(date.getFullYear()) + String(date.getMonth() + 1).padStart(2, '0') + String(date.getDate()).padStart(2, '0');
+    }
+
+    function pushMMDD(date) {
+      return String(date.getMonth() + 1).padStart(2, '0') + String(date.getDate()).padStart(2, '0');
+    }
+
+    function parsePushMMDD(value, year) {
+      if (!/^\\d{4}$/.test(String(value || ''))) return null;
+      const month = Number(String(value).slice(0, 2));
+      const day = Number(String(value).slice(2, 4));
+      const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+      if (month < 1 || month > 12 || day < 1 || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+      return date;
+    }
+
+    // 與時間軸 getExpandedItems() 使用相同的每週重複次數及截止條件。
+    function getPushOccurrences(item) {
+      if (!item || !item.date) return [];
+      const year = new Date().getFullYear();
+      const baseStart = parsePushMMDD(item.date, year);
+      if (!baseStart) return [];
+      let repeatCount = 1;
+      if (item.repeat) repeatCount = item.repeat.type === 'count'
+        ? Math.max(1, Number(item.repeat.count) || 4) : 4;
+
+      let spanDays = 0;
+      if (item.taskType === 'pick-one' && item.endDate) {
+        const end = parsePushMMDD(item.endDate, year);
+        if (end) {
+          const adjustedEnd = end < baseStart ? new Date(year + 1, end.getMonth(), end.getDate()) : end;
+          spanDays = Math.max(0, Math.min(6, Math.round((adjustedEnd - baseStart) / 86400000)));
+        }
       }
-      return target.getTime();
+
+      const occurrences = [];
+      for (let week = 0; week < repeatCount; week++) {
+        const startDate = new Date(baseStart.getTime() + week * 7 * 86400000);
+        if (week > 0 && item.repeat && item.repeat.type === 'date' &&
+            item.repeat.untilDate && pushMMDD(startDate) > item.repeat.untilDate) break;
+        for (let day = 0; day <= spanDays; day++) {
+          occurrences.push(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + day));
+        }
+      }
+      return occurrences;
+    }
+
+    function pushItemTitle(item) {
+      return ((item.emoji || userDefaultEmoji) + ' ' + (item.text || '簡潔記事提醒')).trim();
+    }
+
+    function pushTimeLabel(item) {
+      const raw = String(item.time || '').replace(':', '');
+      if (!/^\\d{4}$/.test(raw)) return '';
+      return raw.slice(0, 2) + ':' + raw.slice(2, 4);
     }
 
     async function syncPushReminders() {
@@ -1271,25 +1309,77 @@
       const snapshot = await remindersRef.once('value');
       const existing = snapshot.val() || {};
       const desired = {};
+      const now = new Date();
+      const nowMs = now.getTime();
+      const horizonDays = 35;
+      const digestItemsByDate = {};
+
+      // 建立時間軸上實際出現的每個日期；已完成事項不加入提醒。
       db.forEach(item => {
-        if (!item || item.completed || !item.date || item.repeat) return;
-        const scheduledAt = nextReminderTimestamp(item);
-        if (!scheduledAt) return;
-        const id = String(item.id);
-        const title = ((item.emoji || userDefaultEmoji) + ' ' + (item.text || '簡潔記事提醒')).slice(0, 80);
+        if (!item || item.completed) return;
+        if (!item.date) return; // 無日期待辦只列入每天 06:30 的總提醒
+        getPushOccurrences(item).forEach(occurrenceDate => {
+          const dateKey = pushDateKey(occurrenceDate);
+          if (!digestItemsByDate[dateKey]) digestItemsByDate[dateKey] = [];
+          digestItemsByDate[dateKey].push(item);
+
+          // 有設定開始時間的事項，在該日開始前 30 分鐘提醒。
+          const timeLabel = pushTimeLabel(item);
+          if (!timeLabel) return;
+          const hour = Number(timeLabel.slice(0, 2));
+          const minute = Number(timeLabel.slice(3, 5));
+          if (hour > 23 || minute > 59) return;
+          const scheduled = new Date(occurrenceDate.getFullYear(), occurrenceDate.getMonth(),
+            occurrenceDate.getDate(), hour, minute, 0, 0);
+          scheduled.setMinutes(scheduled.getMinutes() - 30);
+          const scheduledAt = scheduled.getTime();
+          if (scheduledAt <= nowMs) return;
+          const id = 'item_' + String(item.id) + '_' + dateKey + '_minus30';
+          const title = ('⏰ 30 分鐘後：' + pushItemTitle(item)).slice(0, 80);
+          const body = '距離事項開始時間還有 30 分鐘。';
+          const previous = existing[id];
+          desired[id] = {
+            kind: 'item', scheduledAt, title, body,
+            sent: !!(previous && previous.sent && previous.scheduledAt === scheduledAt && previous.title === title)
+          };
+          if (desired[id].sent && previous.sentAt) desired[id].sentAt = previous.sentAt;
+        });
+      });
+
+      // 每天早上 06:30 送出當天事項摘要，無日期待辦也會每天列入。
+      const undatedItems = db.filter(item => item && !item.completed && !item.date);
+      for (let offset = 0; offset < horizonDays; offset++) {
+        const digestDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 6, 30, 0, 0);
+        const scheduledAt = digestDate.getTime();
+        if (scheduledAt <= nowMs) continue;
+        const dateKey = pushDateKey(digestDate);
+        const todays = (digestItemsByDate[dateKey] || []).slice();
+        const unique = new Map();
+        todays.forEach(item => unique.set(String(item.id), item));
+        const dated = Array.from(unique.values()).sort((a, b) =>
+          (pushTimeLabel(a) || '99:99').localeCompare(pushTimeLabel(b) || '99:99'));
+        if (!dated.length && !undatedItems.length) continue;
+
+        const datedLines = dated.map(item => {
+          const time = pushTimeLabel(item);
+          return (time ? time + ' ' : '') + pushItemTitle(item);
+        });
+        const undatedLines = undatedItems.map(item => '📌 ' + pushItemTitle(item));
+        const allLines = datedLines.concat(undatedLines);
+        const shown = allLines.slice(0, 5);
+        let body = shown.join('；');
+        if (allLines.length > shown.length) body += '；另有 ' + (allLines.length - shown.length) + ' 項';
+        body = body.slice(0, 180);
+        const id = 'daily_' + dateKey;
+        const title = '🌅 早安！今日共有 ' + allLines.length + ' 項事項';
         const previous = existing[id];
-        const dateKey = item.taskType === 'pick-one' ? (item.endDate || item.date) : item.date;
-        const timeKey = String(item.time || '0900').replace(':', '').padStart(4, '0');
         desired[id] = {
-          scheduledAt,
-          dateKey,
-          timeKey,
-          title,
-          body: '現在是你設定的事項提醒時間。',
-          sent: !!(previous && previous.sent && previous.dateKey === dateKey && previous.timeKey === timeKey && previous.title === title)
+          kind: 'daily', scheduledAt, title: title.slice(0, 80), body,
+          sent: !!(previous && previous.sent && previous.scheduledAt === scheduledAt && previous.title === title && previous.body === body)
         };
         if (desired[id].sent && previous.sentAt) desired[id].sentAt = previous.sentAt;
-      });
+      }
+
       const updates = {};
       Object.keys(existing).forEach(id => {
         if (!desired[id]) updates[id] = null;
@@ -1330,7 +1420,7 @@
         pushEnabled = true;
         localStorage.setItem('PUSH_ENABLED', '1');
         await syncPushReminders();
-        setPushStatus('推播已啟用！已同步目前符合條件的事項。');
+        setPushStatus('推播已啟用！已同步每日 6:30 摘要及個別提前 30 分鐘提醒。');
         alert('手機推播已啟用！提醒會由雲端定期檢查，實際送達可能稍有延遲。');
       } catch (error) {
         console.error('啟用推播失敗：', error);
