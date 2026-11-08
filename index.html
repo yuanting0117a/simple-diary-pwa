@@ -681,7 +681,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.16</div>
+      <div class="app-version">v36.17</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -857,8 +857,8 @@
       <button type="button" class="btn btn-primary" id="open-calendar-export" style="width:100%; margin-bottom:8px;">🖼️ 匯出月曆照片</button>
 
       <div class="input-btns" style="margin-top:14px;">
-        <button type="button" class="btn btn-primary" id="save-settings-btn" style="flex:1;">儲存設定</button>
-        <button type="button" class="btn" id="close-settings-btn" style="flex:1;">關閉</button>
+        <button type="button" class="btn btn-primary" id="save-settings-btn" style="flex:1;">✓ 確認並儲存</button>
+        <button type="button" class="btn" id="close-settings-btn" style="flex:1;">取消變更</button>
       </div>
     </div>
   </div>
@@ -1161,8 +1161,12 @@
       });
     }
 
+    // 設定視窗中的預設 Emoji 採暫存編輯：確認才儲存，取消則還原。
+    let settingsOpeningDefaultEmoji = userDefaultEmoji;
+
     settingsBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      settingsOpeningDefaultEmoji = userDefaultEmoji;
       defaultEmojiInput.value = userDefaultEmoji;
       renderSettingsEmojiList();
       updateLocationSettingStatus();
@@ -1172,6 +1176,7 @@
 
     document.getElementById('close-settings-btn').addEventListener('click', (e) => {
       e.preventDefault();
+      defaultEmojiInput.value = settingsOpeningDefaultEmoji;
       testCenterLock();
       settingsModalOverlay.classList.remove('show');
     });
@@ -1214,8 +1219,16 @@
 
     document.getElementById('save-settings-btn').addEventListener('click', (e) => {
       e.preventDefault();
-      userDefaultEmoji = defaultEmojiInput.value.trim() || '📌';
-      try { localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji); } catch(e){}
+      const nextDefaultEmoji = defaultEmojiInput.value.trim() || '📌';
+      try {
+        localStorage.setItem('DEFAULT_EMOJI', nextDefaultEmoji);
+        userDefaultEmoji = nextDefaultEmoji;
+        settingsOpeningDefaultEmoji = nextDefaultEmoji;
+      } catch(error) {
+        alert('設定儲存失敗，請確認裝置儲存空間。');
+        return;
+      }
+      testCenterLock();
       settingsModalOverlay.classList.remove('show');
       render();
     });
