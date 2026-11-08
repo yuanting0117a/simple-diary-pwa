@@ -1067,6 +1067,10 @@
 
     openInputModalBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      if (isEditing) {
+        setEditingMode(false);
+        return;
+      }
       editingItemId = null;
       inputModalTitle.innerText = "新增事項";
       inEmoji.value = userDefaultEmoji;
@@ -1336,12 +1340,6 @@
       setEditingMode(!isEditing);
     });
 
-    // 編輯模式時，將新增按鈕改作「完成」；按下即可結束編輯模式。
-    openInputModalBtn.addEventListener('click', (e) => {
-      if (!isEditing) return;
-      e.preventDefault();
-      setEditingMode(false);
-    });
 
     document.getElementById('tab-list').addEventListener('click', (e) => {
       e.preventDefault();
