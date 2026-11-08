@@ -753,7 +753,7 @@
         <button type="button" class="btn btn-primary" id="enable-push-btn" style="flex:1;">啟用手機推播</button>
         <button type="button" class="btn" id="disable-push-btn" style="flex:1;">關閉推播</button>
       </div>
-      <div style="font-size:0.7rem; color:var(--text-sub); line-height:1.5;">啟用後，未完成且有日期的事項會同步必要提醒資料；未填時間的事項預設上午 9:00。雲端每 5 分鐘檢查一次，通知可能稍有延遲。</div>
+      <div style="font-size:0.7rem; color:var(--text-sub); line-height:1.5;">啟用後，未完成且有日期的非重複事項會同步必要提醒資料；未填時間預設上午 9:00。雲端每 5 分鐘檢查一次，通知可能稍有延遲。</div>
       <div class="input-btns" style="margin-top:14px;">
         <button type="button" class="btn btn-primary" id="save-settings-btn" style="flex:1;">儲存設定</button>
         <button type="button" class="btn" id="close-settings-btn" style="flex:1;">關閉</button>
@@ -1219,7 +1219,7 @@
       if (!firebaseConfigReady()) {
         setPushStatus('尚未設定 Firebase。請先依專案 PUSH_SETUP.md 完成免費專案設定；目前不會要求通知權限。');
       } else if (pushEnabled) {
-        setPushStatus('推播已在此裝置啟用。未完成且有日期的事項會同步至雲端，預設提醒時間為上午 9:00。');
+        setPushStatus('推播已在此裝置啟用。未完成且有日期的非重複事項會同步至雲端，預設提醒時間為上午 9:00。');
       } else {
         setPushStatus('Firebase 已設定，尚未在此裝置啟用推播。');
       }
@@ -1278,11 +1278,15 @@
         const id = String(item.id);
         const title = ((item.emoji || userDefaultEmoji) + ' ' + (item.text || '簡潔記事提醒')).slice(0, 80);
         const previous = existing[id];
+        const dateKey = item.taskType === 'pick-one' ? (item.endDate || item.date) : item.date;
+        const timeKey = String(item.time || '0900').replace(':', '').padStart(4, '0');
         desired[id] = {
           scheduledAt,
+          dateKey,
+          timeKey,
           title,
           body: '現在是你設定的事項提醒時間。',
-          sent: !!(previous && previous.sent && previous.scheduledAt === scheduledAt && previous.title === title)
+          sent: !!(previous && previous.sent && previous.dateKey === dateKey && previous.timeKey === timeKey && previous.title === title)
         };
         if (desired[id].sent && previous.sentAt) desired[id].sentAt = previous.sentAt;
       });
