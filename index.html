@@ -679,7 +679,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.13</div>
+      <div class="app-version">v36.14</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -828,9 +828,20 @@
         <input type="file" id="import-backup-file" accept="application/json,.json" style="display:none;">
       </div>
       <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">支援 JSON 備份轉移；匯入時可選擇合併或取代，建議優先使用合併。</div>
-      <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">天氣功能測試：</div>
-      <button type="button" class="btn btn-primary" id="test-weather-btn" style="width:100%; margin-bottom:6px;">🌦️ 測試定位與天氣</button>
-      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">點擊後會要求位置權限，並即時查詢目前所在地天氣。</div>
+      <div style="font-size:0.9rem; font-weight:bold; margin: 12px 0 6px 0;">🧪 測試中心（需密碼）</div>
+      <div style="font-size:0.75rem; color:var(--text-sub); margin-bottom:8px;">功能測試集中在這裡，輸入密碼後即可使用。</div>
+      <div id="test-center-lock" style="padding:10px; background:#f5f6fa; border-radius:10px; margin-bottom:8px;">
+        <input type="password" id="test-center-password" class="input-text" style="margin-bottom:6px;" placeholder="輸入測試密碼" autocomplete="off">
+        <button type="button" class="btn btn-primary" id="test-center-unlock" style="width:100%;">解鎖測試功能</button>
+        <div id="test-center-error" style="display:none; color:var(--danger-color); font-size:0.75rem; margin-top:6px; text-align:center;">密碼錯誤，請再試一次。</div>
+      </div>
+      <div id="test-center-tools" style="display:none; padding:10px; background:#f5f6fa; border-radius:10px; margin-bottom:8px;">
+        <div style="font-size:0.8rem; font-weight:bold; margin-bottom:6px;">可用測試</div>
+        <button type="button" class="btn btn-primary" id="test-greeting-btn" style="width:100%; margin-bottom:6px;">👋 測試每日問候</button>
+        <button type="button" class="btn btn-primary" id="test-weather-btn" style="width:100%; margin-bottom:6px;">🌦️ 測試定位與天氣</button>
+        <div style="font-size:0.72rem; color:var(--text-sub);">測試不會更改每日問候紀錄或記事資料。關閉設定後會自動重新上鎖。</div>
+        <button type="button" class="btn" id="test-center-lock-btn" style="width:100%; margin-top:8px;">🔒 鎖定測試功能</button>
+      </div>
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">月曆匯出：</div>
       <button type="button" class="btn btn-primary" id="open-calendar-export" style="width:100%; margin-bottom:8px;">🖼️ 匯出月曆照片</button>
 
@@ -1143,11 +1154,13 @@
       e.preventDefault();
       defaultEmojiInput.value = userDefaultEmoji;
       renderSettingsEmojiList();
+      testCenterLock();
       settingsModalOverlay.classList.add('show');
     });
 
     document.getElementById('close-settings-btn').addEventListener('click', (e) => {
       e.preventDefault();
+      testCenterLock();
       settingsModalOverlay.classList.remove('show');
     });
 
@@ -2570,6 +2583,48 @@
     })();
 
     let weatherTestMode = false;
+    const testCenterPassword = '20080117';
+    const testCenterLock = () => {
+      document.getElementById('test-center-tools').style.display = 'none';
+      document.getElementById('test-center-lock').style.display = 'block';
+      document.getElementById('test-center-password').value = '';
+      document.getElementById('test-center-error').style.display = 'none';
+    };
+    document.getElementById('test-center-unlock').addEventListener('click', () => {
+      const entered = document.getElementById('test-center-password').value;
+      if (entered !== testCenterPassword) {
+        document.getElementById('test-center-error').style.display = 'block';
+        return;
+      }
+      document.getElementById('test-center-error').style.display = 'none';
+      document.getElementById('test-center-lock').style.display = 'none';
+      document.getElementById('test-center-tools').style.display = 'block';
+    });
+    document.getElementById('test-center-password').addEventListener('keydown', event => {
+      if (event.key === 'Enter') document.getElementById('test-center-unlock').click();
+    });
+    document.getElementById('test-center-lock-btn').addEventListener('click', testCenterLock);
+    document.getElementById('test-greeting-btn').addEventListener('click', () => {
+      const now = new Date();
+      let greeting;
+      if (now.getHours() >= 5 && now.getHours() < 12) {
+        greeting = { emoji: '☀️', title: '早安！', message: '新的一天開始了，祝你今天順順利利！' };
+      } else if (now.getHours() >= 12 && now.getHours() < 18) {
+        greeting = { emoji: '🌤️', title: '午安！', message: '忙碌之餘也別忘了休息，慢慢來就好。' };
+      } else {
+        greeting = { emoji: '🌙', title: '晚安！', message: '今天也辛苦了，記得留一點時間給自己。' };
+      }
+      weatherTestMode = true;
+      settingsModalOverlay.classList.remove('show');
+      document.getElementById('daily-greeting-emoji').textContent = greeting.emoji;
+      document.getElementById('daily-greeting-title').textContent = '問候測試｜' + greeting.title;
+      document.getElementById('daily-greeting-message').textContent = greeting.message;
+      document.getElementById('weather-status').style.display = 'block';
+      document.getElementById('weather-status').textContent = '問候畫面測試中…';
+      document.getElementById('weather-main').style.display = 'none';
+      document.getElementById('weather-details').style.display = 'none';
+      document.getElementById('daily-greeting-overlay').classList.add('show');
+    });
     document.getElementById('test-weather-btn').addEventListener('click', () => {
       settingsModalOverlay.classList.remove('show');
       weatherTestMode = true;
