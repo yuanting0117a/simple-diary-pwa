@@ -1207,16 +1207,14 @@
     }
 
     function findDateOverlap(candidates) {
-      const existing = getExpandedItems().filter(item => !editingItemId || String(item.id).split('_rep_')[0] !== String(editingItemId));
+      // 只檢查本次新增／修改的同一事件展開後，各次日期是否互相重疊；
+      // 不與資料庫中的其他事項比較。
       const proposed = candidates.flatMap(expandForOverlapCheck);
-      const checks = [];
-      proposed.forEach((item, index) => {
-        existing.forEach(other => checks.push([item, other]));
-        proposed.slice(0, index).forEach(other => checks.push([item, other]));
-      });
-      for (const [item, other] of checks) {
-        const overlap = overlapRange(item, other);
-        if (overlap) return overlap;
+      for (let i = 0; i < proposed.length; i++) {
+        for (let j = 0; j < i; j++) {
+          const overlap = overlapRange(proposed[i], proposed[j]);
+          if (overlap) return overlap;
+        }
       }
       return null;
     }
@@ -1250,14 +1248,14 @@
 
       const groupId = effectiveTaskMode === 'pick-one' ? `group_${Date.now()}` : null;
 
-      // 新增或修改前，檢查本次日期及每週重複展開後是否與既有事項重疊。
+      // 新增或修改前，只檢查本事件的各次日期是否互相重疊。
       const candidates = effectiveTaskMode === 'fixed-multi'
         ? datesArray.filter(Boolean).map(singleD => ({ date: singleD, endDate: '', repeat: repeatOpt }))
         : [{ date: datesArray[0], endDate: datesArray[datesArray.length - 1], repeat: repeatOpt }];
       const overlap = findDateOverlap(candidates);
       if (overlap) {
         const rangeText = overlap.start === overlap.end ? overlap.start : overlap.start + '–' + overlap.end;
-        errMsg.innerText = '日期重疊：' + rangeText + ' 已有其他事項，請調整日期或重複設定。';
+        errMsg.innerText = '日期重疊：' + rangeText + ' 在本事件的重複日期中發生重疊，請調整日期或重複設定。';
         errMsg.style.display = 'block';
         return;
       }
