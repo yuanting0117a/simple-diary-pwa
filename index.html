@@ -1245,9 +1245,9 @@
 
     function nextReminderTimestamp(item) {
       const dateValue = item.taskType === 'pick-one' ? (item.endDate || item.date) : item.date;
-      if (!/^\\d{4}$/.test(String(dateValue || ''))) return null;
+      if (!/^\d{4}$/.test(String(dateValue || ''))) return null;
       const rawTime = String(item.time || '0900').replace(':', '').padStart(4, '0');
-      if (!/^\\d{4}$/.test(rawTime)) return null;
+      if (!/^\d{4}$/.test(rawTime)) return null;
       const month = Number(dateValue.slice(0, 2));
       const day = Number(dateValue.slice(2, 4));
       const hour = Number(rawTime.slice(0, 2));
