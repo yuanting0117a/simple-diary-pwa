@@ -657,10 +657,11 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.1</div>
+      <div class="app-version">v36.2</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">刪除完成</button>
         <button type="button" class="btn" id="edit-btn">編輯</button>
+        <button type="button" class="btn" id="edit-cancel-btn" style="display:none;">返回</button>
         <button type="button" class="btn" id="settings-btn">⚙️ 設定</button>
       </div>
     </div>
@@ -925,6 +926,7 @@
     const todoBox = document.getElementById('todo-box');
 
     const editBtn = document.getElementById('edit-btn');
+    const editCancelBtn = document.getElementById('edit-cancel-btn');
     const cleanBtn = document.getElementById('clean-btn');
     const settingsBtn = document.getElementById('settings-btn');
     const settingsModalOverlay = document.getElementById('settings-modal-overlay');
@@ -1312,13 +1314,24 @@
       inputModalOverlay.classList.add('show');
     }
 
-    editBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      isEditing = !isEditing;
+    function setEditingMode(enabled) {
+      isEditing = enabled;
       editBtn.textContent = isEditing ? '完成' : '編輯';
       editBtn.classList.toggle('btn-primary', isEditing);
       editBtn.classList.toggle('btn-active', isEditing);
+      editCancelBtn.style.display = isEditing ? 'inline-block' : 'none';
       document.body.classList.toggle('editing', isEditing);
+    }
+
+    editBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      setEditingMode(!isEditing);
+    });
+
+    // 編輯模式尚未完成時，可按「返回」直接退出，不執行任何刪除或修改。
+    editCancelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      setEditingMode(false);
     });
 
     document.getElementById('tab-list').addEventListener('click', (e) => {
