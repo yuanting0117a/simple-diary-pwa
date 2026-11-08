@@ -828,12 +828,9 @@
         <input type="file" id="import-backup-file" accept="application/json,.json" style="display:none;">
       </div>
       <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">支援 JSON 備份轉移；匯入時可選擇合併或取代，建議優先使用合併。</div>
-      <div style="font-size:0.9rem; font-weight:bold; margin: 12px 0 6px 0;">🧪 測試中心（需密碼）</div>
-      <div style="font-size:0.75rem; color:var(--text-sub); margin-bottom:8px;">功能測試集中在這裡，輸入密碼後即可使用。</div>
-      <div id="test-center-lock" style="padding:10px; background:#f5f6fa; border-radius:10px; margin-bottom:8px;">
-        <input type="password" id="test-center-password" class="input-text" style="margin-bottom:6px;" placeholder="輸入測試密碼" autocomplete="off">
-        <button type="button" class="btn btn-primary" id="test-center-unlock" style="width:100%;">解鎖測試功能</button>
-        <div id="test-center-error" style="display:none; color:var(--danger-color); font-size:0.75rem; margin-top:6px; text-align:center;">密碼錯誤，請再試一次。</div>
+      <div style="font-size:0.9rem; font-weight:bold; margin: 12px 0 6px 0;">🧪 測試功能</div>
+      <div id="test-center-entry" style="margin-bottom:8px;">
+        <button type="button" class="btn btn-primary" id="test-center-open" style="width:100%;">🧪 開啟測試功能</button>
       </div>
       <div id="test-center-tools" style="display:none; padding:10px; background:#f5f6fa; border-radius:10px; margin-bottom:8px;">
         <div style="font-size:0.8rem; font-weight:bold; margin-bottom:6px;">可用測試</div>
@@ -2586,22 +2583,17 @@
     const testCenterPassword = '20080117';
     const testCenterLock = () => {
       document.getElementById('test-center-tools').style.display = 'none';
-      document.getElementById('test-center-lock').style.display = 'block';
-      document.getElementById('test-center-password').value = '';
-      document.getElementById('test-center-error').style.display = 'none';
+      document.getElementById('test-center-entry').style.display = 'block';
     };
-    document.getElementById('test-center-unlock').addEventListener('click', () => {
-      const entered = document.getElementById('test-center-password').value;
+    document.getElementById('test-center-open').addEventListener('click', () => {
+      const entered = window.prompt('請輸入測試密碼');
+      if (entered === null) return;
       if (entered !== testCenterPassword) {
-        document.getElementById('test-center-error').style.display = 'block';
+        window.alert('密碼錯誤');
         return;
       }
-      document.getElementById('test-center-error').style.display = 'none';
-      document.getElementById('test-center-lock').style.display = 'none';
+      document.getElementById('test-center-entry').style.display = 'none';
       document.getElementById('test-center-tools').style.display = 'block';
-    });
-    document.getElementById('test-center-password').addEventListener('keydown', event => {
-      if (event.key === 'Enter') document.getElementById('test-center-unlock').click();
     });
     document.getElementById('test-center-lock-btn').addEventListener('click', testCenterLock);
     document.getElementById('test-greeting-btn').addEventListener('click', () => {
