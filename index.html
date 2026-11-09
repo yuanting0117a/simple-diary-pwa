@@ -58,6 +58,7 @@
     }
 
     .app-title { font-size: 1.2rem; font-weight: 700; }
+    .weather-header-btn { margin-left: 10px; font-size: 1.2rem; }
     .app-version { font-size: 0.72rem; color: #888; margin-left: auto; margin-right: 8px; white-space: nowrap; align-self: center; }
     .header-actions { display: flex; gap: 8px; align-items: center; }
     .icon-btn { width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #d7dce5; border-radius: 12px; background: #fff; color: #343a46; font-size: 1.45rem; font-weight: 800; box-shadow: 0 2px 5px rgba(25,35,55,.10); cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
@@ -763,6 +764,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
+      <button type="button" class="btn icon-btn weather-header-btn" id="weather-header-btn" title="每日問候與天氣" aria-label="每日問候與天氣">☀️</button>
       <div class="app-version">v56.10</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
@@ -3147,15 +3149,9 @@
       updateLocationSettingStatus();
     });
 
-    // 每天第一次開啟時顯示一次招呼；招呼關閉後接著顯示今日事項。
-    let greetingShown = false;
-    (function showDailyGreeting() {
+    // 每日問候與天氣改由標題旁按鈕手動開啟。
+    function showGreetingWeather() {
       const now = new Date();
-      const todayKey = now.getFullYear() + '-' +
-        String(now.getMonth() + 1).padStart(2, '0') + '-' +
-        String(now.getDate()).padStart(2, '0');
-      if (localStorage.getItem('DAILY_GREETING_DATE') === todayKey) return;
-
       const hour = now.getHours();
       let greeting;
       if (hour >= 5 && hour < 12) {
@@ -3165,15 +3161,17 @@
       } else {
         greeting = { emoji: '🌙', title: '晚安！', message: '今天辛苦了，記得好好休息。' };
       }
-
       document.getElementById('daily-greeting-emoji').textContent = greeting.emoji;
       document.getElementById('daily-greeting-title').textContent = greeting.title;
       document.getElementById('daily-greeting-message').textContent = greeting.message;
+      document.getElementById('weather-status').style.display = 'block';
+      document.getElementById('weather-main').style.display = 'none';
+      document.getElementById('weather-details').style.display = 'none';
       loadGreetingWeather();
-      localStorage.setItem('DAILY_GREETING_DATE', todayKey);
-      greetingShown = true;
       document.getElementById('daily-greeting-overlay').classList.add('show');
-    })();
+    }
+
+    document.getElementById('weather-header-btn').addEventListener('click', showGreetingWeather);
 
     let weatherTestMode = false;
     const testCenterPassword = '20080117';
@@ -3217,16 +3215,12 @@
 
     document.getElementById('daily-greeting-close').addEventListener('click', () => {
       document.getElementById('daily-greeting-overlay').classList.remove('show');
-      if (weatherTestMode) {
-        weatherTestMode = false;
-        return;
-      }
-      showTodayTasks();
+      if (weatherTestMode) weatherTestMode = false;
     });
     document.getElementById('today-tasks-close').addEventListener('click', () => {
       document.getElementById('today-tasks-overlay').classList.remove('show');
     });
-    if (!greetingShown) showTodayTasks();
+    showTodayTasks();
   </script>
 </body>
 </html>
