@@ -2272,13 +2272,13 @@
       const rangeStart = start.getTime();
       const rangeEnd = end.getTime() + dayMs;
       const asDate = (md, year) => {
-        if (!md || !/^\\d{4}$/.test(md)) return null;
+        if (!md || !/^\d{4}$/.test(md)) return null;
         const month = Number(md.slice(0, 2)) - 1;
         const day = Number(md.slice(2, 4));
         const value = new Date(year, month, day);
         return value.getMonth() === month && value.getDate() === day ? value : null;
       };
-      const readMinutes = value => /^\\d{4}$/.test(value || '') &&
+      const readMinutes = value => /^\d{4}$/.test(value || '') &&
         Number(value.slice(0, 2)) < 24 && Number(value.slice(2, 4)) < 60
         ? Number(value.slice(0, 2)) * 60 + Number(value.slice(2, 4))
         : null;
