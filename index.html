@@ -2339,7 +2339,8 @@
       entries.sort((a, b) => a.start - b.start || a.end - b.end ||
         String(a.item.id).localeCompare(String(b.item.id)));
 
-      const pad = 24, colW = 56, headH = 82, rowH = 30;
+      // 匯出預覽沿用主時間軸：每日 96px、每 6 小時一格、相同長條樣式。
+      const pad = 24, colW = 96, headH = 72, rowH = 32;
       const canvas = document.createElement('canvas');
       canvas.width = pad * 2 + count * colW;
       canvas.height = pad * 2 + headH + Math.max(1, entries.length) * rowH;
@@ -2361,71 +2362,98 @@
       c.fillStyle = '#202027';
       c.font = 'bold 27px sans-serif';
       c.textAlign = 'left';
-      c.fillText('簡潔記事｜時間軸', pad + 12, pad + 32);
+      c.fillText('簡潔記事｜時間軸', pad + 12, pad + 30);
       c.font = '14px sans-serif';
       c.fillStyle = '#777780';
-      c.fillText(timelineExportStart.value + ' ～ ' + timelineExportEnd.value, pad + 12, pad + 57);
+      c.fillText(timelineExportStart.value + ' ～ ' + timelineExportEnd.value, pad + 12, pad + 52);
 
       const gx = pad;
-      c.fillStyle = '#eceff4';
-      c.fillRect(gx, pad + headH - 24, count * colW, 30);
+      const headerTop = pad + headH - 12;
+      c.fillStyle = '#f7f8fa';
+      c.fillRect(gx, headerTop, count * colW, 30);
+
+      // 日期與時間刻度：與主時間軸一致，每日 96px。
       for (let i = 0; i < count; i++) {
         const d = new Date(rangeStart + i * dayMs);
         const x = gx + i * colW;
         c.textAlign = 'center';
-        c.font = '11px sans-serif';
+        c.font = 'bold 12px sans-serif';
         c.fillStyle = '#454550';
-        c.fillText((d.getMonth() + 1) + '/' + d.getDate(), x + colW / 2, pad + headH - 30);
-        c.font = '8px sans-serif';
+        c.fillText((d.getMonth() + 1) + '/' + d.getDate(), x + colW / 2, headerTop - 7);
+        c.font = '9px sans-serif';
         c.fillStyle = '#777780';
-        [['00', 0], ['06', 14], ['12', 28], ['18', 42]].forEach(([label, offset]) => {
-          c.fillText(label, x + offset + 7, pad + headH - 5);
+        [['00', 0], ['06', 24], ['12', 48], ['18', 72]].forEach(([label, offset]) => {
+          c.fillText(label, x + offset + (offset === 0 ? 4 : 0), headerTop + 19);
         });
+      }
 
-        // 每一天都有淡灰色分隔線；每週週一以較粗、較長的藍線標示。
+      // 每日灰色分隔線；週一以更粗、更長的藍線貫穿標頭與內容。
+      for (let i = 0; i <= count; i++) {
+        const d = new Date(rangeStart + i * dayMs);
+        const x = gx + i * colW;
         c.strokeStyle = '#d9dde6';
         c.lineWidth = 1;
         c.beginPath();
-        c.moveTo(x, pad + headH + 6);
+        c.moveTo(x, headerTop);
         c.lineTo(x, canvas.height - pad);
         c.stroke();
 
-        if (d.getDay() === 1) {
+        if (i < count && d.getDay() === 1) {
           c.strokeStyle = '#3478d4';
           c.lineWidth = 3;
           c.beginPath();
-          c.moveTo(x, pad + headH - 24);
+          c.moveTo(x, pad + 2);
           c.lineTo(x, canvas.height - pad);
           c.stroke();
         }
 
-        [14, 28, 42].forEach(offset => {
-          c.strokeStyle = '#f0f1f4';
-          c.lineWidth = 1;
-          c.beginPath();
-          c.moveTo(x + offset, pad + headH + 6);
-          c.lineTo(x + offset, canvas.height - pad);
-          c.stroke();
-        });
+        if (i < count) {
+          [24, 48, 72].forEach(offset => {
+            c.strokeStyle = '#edf0f4';
+            c.lineWidth = 1;
+            c.beginPath();
+            c.moveTo(x + offset, headerTop + 30);
+            c.lineTo(x + offset, canvas.height - pad);
+            c.stroke();
+          });
+        }
       }
-      c.strokeStyle = '#d9dde6';
-      c.lineWidth = 1;
-      c.beginPath();
-      c.moveTo(gx + count * colW, pad + headH + 6);
-      c.lineTo(gx + count * colW, canvas.height - pad);
-      c.stroke();
 
+      // 每筆事項各佔一排，避免重疊；長條外觀與主時間軸一致。
       entries.forEach((entry, index) => {
-        const y = pad + headH + index * rowH + rowH / 2 + 6;
+        const y = pad + headH + index * rowH + 2;
         const left = (entry.start - rangeStart) / dayMs * colW;
         const right = (entry.end - rangeStart) / dayMs * colW;
-        const x = gx + left + 1;
-        const w = Math.max(2, right - left - 2);
-        c.fillStyle = entry.item.completed ? '#d8d9df' : '#cfe3ff';
-        c.fillRect(x, y - 8, w, 16);
-        c.strokeStyle = entry.item.completed ? '#b8bac2' : '#86b9f2';
+        const x = gx + left + 2;
+        const w = Math.max(5, right - left - 4);
+        const item = entry.item;
+        c.fillStyle = item.completed ? '#e5e5ea' : '#eef6ff';
+        c.strokeStyle = item.completed ? '#c7c7cc' : '#b3d7ff';
         c.lineWidth = 1;
-        c.strokeRect(x, y - 8, w, 16);
+        c.beginPath();
+        c.roundRect(x, y, w, 22, 6);
+        c.fill();
+        c.stroke();
+
+        const startDate = new Date(entry.start);
+        const endDate = new Date(entry.end);
+        const fmtDate = d => String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+        const fmtTime = d => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        const em = item.emoji || userDefaultEmoji || '';
+        const label = (em ? em + ' ' : '') +
+          '[' + fmtDate(startDate) + ' ' + fmtTime(startDate) + '～' + fmtDate(endDate) + ' ' + fmtTime(endDate) + '] ' +
+          (item.text || '');
+        c.save();
+        c.beginPath();
+        c.rect(x + 7, y, Math.max(0, w - 12), 22);
+        c.clip();
+        c.font = '12px sans-serif';
+        c.textAlign = 'left';
+        c.textBaseline = 'middle';
+        c.fillStyle = item.completed ? '#8e8e93' : '#3478d4';
+        if (item.completed) c.globalAlpha = 0.65;
+        c.fillText(label, x + 7, y + 11);
+        c.restore();
       });
 
       if (!entries.length) {
