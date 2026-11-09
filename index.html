@@ -2091,8 +2091,18 @@
       saveAndRender();
     }
 
-    function deleteItem(id) {
-      db = db.filter(x => x.id !== id);
+    function deleteItem(id, repeatIndex = 0) {
+      const item = db.find(x => String(x.id) === String(id));
+      if (!item) return;
+      if (item.repeat) {
+        if (!Array.isArray(item.skippedRepeatInstances)) item.skippedRepeatInstances = [];
+        const occurrence = Math.max(0, Number(repeatIndex) || 0);
+        if (!item.skippedRepeatInstances.includes(occurrence)) {
+          item.skippedRepeatInstances.push(occurrence);
+        }
+      } else {
+        db = db.filter(x => String(x.id) !== String(id));
+      }
       saveAndRender();
     }
 
@@ -2215,7 +2225,8 @@
       db.forEach(item => {
         if (!item.date) return;
 
-        list.push(item);
+        const skippedOccurrences = Array.isArray(item.skippedRepeatInstances) ? item.skippedRepeatInstances : [];
+        if (!skippedOccurrences.includes(0)) list.push(item);
 
         if (item.repeat) {
           let maxTimes = 4;
@@ -2228,6 +2239,7 @@
             if (item.repeat.type === 'date' && item.repeat.untilDate && nextStart > item.repeat.untilDate) {
               break;
             }
+            if (skippedOccurrences.includes(week)) continue;
 
             list.push({
               ...item,
@@ -2382,7 +2394,7 @@
         </div>
         <div class="action-btns">
           <button type="button" class="edit-item-btn" onclick="openEditModal(${realId})">✏️</button>
-          <button type="button" class="del-btn" onclick="deleteItem(${realId})">✕</button>
+          <button type="button" class="del-btn" onclick="deleteItem('${realId}', ${repeatIndex})">✕</button>
         </div>
       `;
       return li;
