@@ -763,7 +763,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v56.4</div>
+      <div class="app-version">v56.5</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2072,21 +2072,11 @@
       monthItems.forEach(entry => {
         const item = entry.item;
         const em = item.emoji || userDefaultEmoji || '';
-        const dateLabel = value => value && /^\d{4}$/.test(value)
-          ? value.slice(0, 2) + '/' + value.slice(2, 4)
+        const timeDisp = item.time
+          ? '[' + item.time + (item.endTime ? '～' + item.endTime : '') + ']'
           : '';
-        const startLabel = dateLabel(item.date);
-        const endLabel = dateLabel(item.endDate || item.date);
-        let timeDisp = '';
-        if (item.time && item.endTime) {
-          timeDisp = `[${startLabel} ${item.time}～${endLabel} ${item.endTime}]`;
-        } else if (item.time) {
-          timeDisp = `[${startLabel} ${item.time}]`;
-        } else if (startLabel) {
-          timeDisp = `[${startLabel}${endLabel && endLabel !== startLabel ? '～' + endLabel : ''}]`;
-        }
         entry.timeLabel = timeDisp;
-        entry.fullLabel = [em, timeDisp, item.text || ''].filter(Boolean).join('　｜　');
+        entry.fullLabel = [timeDisp, em, item.text || ''].filter(Boolean).join('　｜　');
         entry.labelWidth = timelineMeasureContext.measureText(entry.fullLabel).width + 18;
         entry.layoutEndX = Math.max(entry.endX, entry.startX + entry.labelWidth);
       });
@@ -2110,11 +2100,12 @@
         group.entries.forEach(entry => { entry.laneIndex = laneIndex; });
       });
 
-      monthItems.forEach(({ item, startX, endX, startDate, laneIndex, labelWidth, fullLabel }) => {
+      monthItems.forEach(({ item, startX, endX, startDate, laneIndex, fullLabel }) => {
         const bar = document.createElement('div');
         bar.className = `gantt-bar-item ${item.completed ? 'completed' : ''}`;
+        // 時間框只代表真實時間區間，寬度與位置完全不受文字長度影響。
         bar.style.left = `${startX + 2}px`;
-        bar.style.width = `${Math.max(5, endX - startX - 4, labelWidth - 4)}px`;
+        bar.style.width = `${Math.max(5, endX - startX - 4)}px`;
         bar.style.top = `${10 + laneIndex * 28}px`;
         bar.style.overflow = 'visible';
         bar.style.textOverflow = 'clip';
