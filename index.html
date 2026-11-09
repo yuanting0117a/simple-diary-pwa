@@ -3554,7 +3554,6 @@
       closeFeatureMenu();
       countdownFloating.classList.remove('show');
       countdownOverlay.classList.add('show');
-      updateCountdownSelection();
       renderCountdown();
     }
     document.getElementById('feature-countdown').addEventListener('click', openCountdown);
@@ -3610,7 +3609,7 @@
         renderCountdown();
         return;
       }
-      countdownRemaining = selectedCountdownMs();
+      if (!countdownHasStarted || countdownRemaining <= 0) countdownRemaining = selectedCountdownMs();
       if (countdownRemaining <= 0) {
         countdownStatus.textContent = '請設定大於 0 的時間';
         renderCountdown();
@@ -3674,9 +3673,11 @@
       let target = item.date;
       if (item.type === 'countdown' && item.repeat) {
         const monthDay = item.date.slice(5);
-        target = today.getFullYear() + '-' + monthDay;
-        if (dateUtcDay(target) < dateUtcDay(todayString)) target = (today.getFullYear() + 1) + '-' + monthDay;
-        // 處理 2/29：非閏年時以 2/28 作為當年紀念日。
+        const thisYear = today.getFullYear();
+        const thisYearTarget = monthDay === '02-29' && !isLeapYear(thisYear) ? thisYear + '-02-28' : thisYear + '-' + monthDay;
+        target = dateUtcDay(thisYearTarget) < dateUtcDay(todayString)
+          ? (thisYear + 1) + '-' + monthDay
+          : thisYearTarget;
         if (monthDay === '02-29' && !isLeapYear(Number(target.slice(0,4)))) target = target.slice(0,4) + '-02-28';
       }
       const delta = dateUtcDay(target) - dateUtcDay(todayString);
