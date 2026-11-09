@@ -2894,11 +2894,11 @@
 
     // AI 行程匯出：保留所有原始事項與類型，不展開重複項目，避免重複資料失真。
     document.getElementById('export-ai-schedule-btn').addEventListener('click', () => {
-      const cleanText = value => String(value == null ? '' : value).replace(/\\r?\\n/g, ' ').trim();
-      const formatDate = value => /^\\d{4}$/.test(value || '')
+      const cleanText = value => String(value == null ? '' : value).replace(/\r?\n/g, ' ').trim();
+      const formatDate = value => /^\d{4}$/.test(value || '')
         ? value.slice(0, 2) + '/' + value.slice(2, 4)
         : '未設定';
-      const formatTime = value => /^\\d{4}$/.test(value || '')
+      const formatTime = value => /^\d{4}$/.test(value || '')
         ? value.slice(0, 2) + ':' + value.slice(2, 4)
         : '未設定';
       const formatRepeat = repeat => {
@@ -2945,8 +2945,8 @@
         );
       });
       lines.push('## 給 AI 的理解提醒', '', '請依照每筆行程的類型與日期區間理解安排；不要自行補上未儲存的年份或未設定的時間。已完成事項仍保留在清單中，分析未來安排時請優先區分完成狀態。');
-      const markdown = lines.join('\\n');
-      const blob = new Blob(['\\uFEFF', markdown], { type: 'text/markdown;charset=utf-8' });
+      const markdown = lines.join('\n');
+      const blob = new Blob(['\uFEFF', markdown], { type: 'text/markdown;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
