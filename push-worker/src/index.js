@@ -61,6 +61,15 @@ function getBearer(request) {
   return value.startsWith("Bearer ") ? value.slice(7) : "";
 }
 
+function safeEqual(a, b) {
+  const x = new TextEncoder().encode(String(a));
+  const y = new TextEncoder().encode(String(b));
+  let diff = x.length ^ y.length;
+  const length = Math.max(x.length, y.length);
+  for (let i = 0; i < length; i++) diff |= (x[i] || 0) ^ (y[i] || 0);
+  return diff === 0;
+}
+
 async function readBody(request) {
   const text = await request.text();
   if (text.length > 100000) throw new Error("request_too_large");
@@ -110,6 +119,36 @@ async function handleRequest(request, env) {
   if (request.method === "GET" && url.pathname === "/api/config") {
     const keys = await getVapidKeys(env);
     return json({ publicKey: keys.publicKey }, 200, origin);
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/admin/reminders") {
+    if (!env.ADMIN_PASSWORD) return json({ error: "admin_not_configured" }, 503, origin);
+    if (!safeEqual(getBearer(request), env.ADMIN_PASSWORD)) return json({ error: "admin_auth_failed" }, 401, origin);
+    const devices = [];
+    let cursor;
+    do {
+      const page = await env.REMINDERS.list({ prefix: DEVICE_PREFIX, cursor, limit: 100 });
+      for (const entry of page.keys) {
+        const record = await env.REMINDERS.get(entry.name, "json");
+        if (!record) continue;
+        const sent = new Set(Array.isArray(record.sent) ? record.sent : []);
+        const reminders = (Array.isArray(record.reminders) ? record.reminders : []).map(item => ({
+          id: item.id,
+          title: item.title,
+          body: item.body,
+          reminderAt: item.reminderAt,
+          startsAt: item.startsAt,
+          sent: sent.has(item.id)
+        }));
+        devices.push({
+          device: entry.name.slice(DEVICE_PREFIX.length, DEVICE_PREFIX.length + 8),
+          hasPush: validSubscription(record.subscription),
+          reminders
+        });
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    return json({ devices, totalDevices: devices.length }, 200, origin);
   }
 
   if (request.method !== "POST") return json({ error: "not_found" }, 404, origin);
