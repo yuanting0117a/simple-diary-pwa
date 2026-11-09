@@ -4149,6 +4149,9 @@
         renderCountdown();
         return;
       }
+      if ('Notification' in window && Notification.permission === 'default') {
+        try { await Notification.requestPermission(); } catch (_) {}
+      }
       countdownEndAt = Date.now() + countdownRemaining;
       countdownRunning = true;
       countdownHasStarted = true;
