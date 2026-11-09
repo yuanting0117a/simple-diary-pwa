@@ -1587,6 +1587,42 @@
       return `${newMM}${newDD}`;
     }
 
+    function confirmComplete(id) {
+      const item = db.find(x => x.id === id);
+      if (!item || item.completed) return;
+
+      let dialog = document.getElementById('complete-confirm-dialog');
+      if (!dialog) {
+        dialog = document.createElement('div');
+        dialog.id = 'complete-confirm-dialog';
+        dialog.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;padding:20px;';
+        dialog.innerHTML = '<div style="width:min(320px,100%);background:var(--card-bg,#fff);color:var(--text-color,#222);border-radius:16px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,.2);text-align:center;"><div id="complete-confirm-message" style="font-size:1rem;line-height:1.5;margin-bottom:20px;overflow-wrap:anywhere;"></div><div style="display:flex;gap:10px;"><button type="button" id="complete-confirm-no" style="flex:1;padding:11px;border:1px solid var(--border-color,#ddd);border-radius:10px;background:transparent;color:inherit;font-size:1rem;">否</button><button type="button" id="complete-confirm-yes" style="flex:1;padding:11px;border:0;border-radius:10px;background:var(--primary-color,#3478d4);color:#fff;font-size:1rem;">完成</button></div></div>';
+        document.body.appendChild(dialog);
+        document.getElementById('complete-confirm-no').addEventListener('click', () => dialog.remove());
+        document.getElementById('complete-confirm-yes').addEventListener('click', () => {
+          const targetId = Number(dialog.dataset.itemId);
+          const target = db.find(x => x.id === targetId);
+          if (target && !target.completed) {
+            target.completed = true;
+            if (target.taskType === 'pick-one' && target.groupId) {
+              db.forEach(x => {
+                if (x.groupId === target.groupId) x.completed = true;
+              });
+            }
+            saveAndRender();
+          }
+          dialog.remove();
+        });
+        dialog.addEventListener('click', event => {
+          if (event.target === dialog) dialog.remove();
+        });
+      }
+      dialog.dataset.itemId = String(id);
+      document.getElementById('complete-confirm-message').textContent =
+        '要將「' + (item.text || '未命名事項') + '」標記為完成嗎？';
+      dialog.style.display = 'flex';
+    }
+
     function toggleComplete(id) {
       const item = db.find(x => x.id === id);
       if (!item) return;
@@ -1883,7 +1919,7 @@
       const realId = String(item.id).split('_rep_')[0];
 
       li.innerHTML = `
-        <div class="item-content" onclick="toggleComplete(${realId})">
+        <div class="item-content" onclick="confirmComplete(${realId})">
           <span class="item-emoji">${em}</span>
           ${timeDisp ? `<span class="item-time">${timeDisp}</span>` : ''}
           <span class="item-text ${item.completed ? 'completed' : ''}">${item.text}${modeHint}</span>
