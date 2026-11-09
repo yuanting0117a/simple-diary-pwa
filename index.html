@@ -59,6 +59,13 @@
 
     .app-title { font-size: 1.2rem; font-weight: 700; }
     .weather-header-btn { margin-left: 10px; font-size: 1.2rem; }
+    .feature-menu-wrap { position: relative; margin-left: 10px; }
+    .feature-menu-wrap .weather-header-btn { margin-left: 0; }
+    .feature-menu { position: absolute; top: calc(100% + 8px); left: 0; width: 190px; padding: 6px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 300; }
+    .feature-menu-item { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 11px 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; font-size: .9rem; cursor: pointer; color: var(--text-main); }
+    .feature-menu-item:active { background: #f0f0f5; }
+    .feature-menu-item.disabled { color: #a1a1a8; cursor: not-allowed; }
+    .feature-menu-item span { font-size: .68rem; color: #a1a1a8; }
     /* 標題列的天氣、設定與編輯按鈕統一採用清理按鈕的尺寸。 */
     .header-top > .weather-header-btn,
     .header-actions .icon-btn { width: 40px; height: 32px; min-width: 40px; padding: 4px 8px; border-radius: 8px; font-size: 1rem; box-shadow: none; }
@@ -687,6 +694,15 @@
       box-shadow: 0 8px 28px rgba(0,0,0,0.16);
     }
     .greeting-emoji { font-size: 2.4rem; margin-bottom: 10px; }
+    .countdown-modal { max-width: 360px; }
+    .countdown-inputs { display:flex; align-items:end; justify-content:center; gap:12px; margin: 8px 0 18px; }
+    .countdown-inputs label { display:flex; flex-direction:column; gap:5px; color:#777; font-size:.78rem; }
+    .countdown-inputs input { width:82px; text-align:center; font-size:1.05rem; padding:10px 6px; }
+    .countdown-inputs > span { padding-bottom:10px; color:#999; font-weight:700; }
+    .countdown-display { font-size:3rem; font-weight:800; letter-spacing:1px; font-variant-numeric:tabular-nums; margin:10px 0 4px; }
+    .countdown-status { color:#888; font-size:.82rem; min-height:22px; }
+    .countdown-actions { display:flex; gap:7px; margin-top:16px; }
+    .countdown-actions .btn { flex:1; padding:10px 6px; }
     .greeting-title { font-size: 1.25rem; font-weight: 800; margin-bottom: 8px; }
     .greeting-message { color: #666; font-size: 0.92rem; line-height: 1.6; margin-bottom: 20px; }
     .daily-weather { margin: 0 0 18px; padding: 14px 12px; border-radius: 14px; background: #f2f6fb; color: #283747; text-align: left; }
@@ -767,8 +783,15 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <button type="button" class="btn icon-btn weather-header-btn" id="weather-header-btn" title="每日問候與天氣" aria-label="每日問候與天氣">☀️</button>
-      <div class="app-version">v56.19</div>
+      <div class="feature-menu-wrap">
+        <button type="button" class="btn icon-btn weather-header-btn" id="weather-header-btn" title="功能選單" aria-label="功能選單" aria-expanded="false">☀️</button>
+        <div class="feature-menu" id="feature-menu" style="display:none;">
+          <button type="button" class="feature-menu-item" id="feature-weather">☀️ 天氣</button>
+          <button type="button" class="feature-menu-item" id="feature-countdown">⏳ 倒數計時器</button>
+          <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
+        </div>
+      </div>
+      <div class="app-version">v56.20</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -781,6 +804,27 @@
       <div class="view-btn" id="tab-timeline">時間軸</div>
     </div>
   </header>
+
+  <div class="modal-overlay" id="countdown-overlay" style="z-index:1100;">
+    <div class="greeting-modal countdown-modal">
+      <div class="greeting-emoji">⏳</div>
+      <div class="greeting-title">倒數計時器</div>
+      <div class="greeting-message">設定一段時間，時間到時提醒你。</div>
+      <div class="countdown-inputs">
+        <label>小時<input type="number" id="countdown-hours" min="0" max="99" value="0" inputmode="numeric"></label>
+        <span>:</span>
+        <label>分鐘<input type="number" id="countdown-minutes" min="0" max="59" value="25" inputmode="numeric"></label>
+      </div>
+      <div class="countdown-display" id="countdown-display">25:00</div>
+      <div class="countdown-status" id="countdown-status">準備就緒</div>
+      <div class="countdown-actions">
+        <button type="button" class="btn btn-primary" id="countdown-start">開始</button>
+        <button type="button" class="btn" id="countdown-pause" disabled>暫停</button>
+        <button type="button" class="btn" id="countdown-reset">重設</button>
+      </div>
+      <button type="button" class="btn" id="countdown-close" style="width:100%;margin-top:12px;">關閉</button>
+    </div>
+  </div>
 
   <button type="button" class="fab-btn" id="open-input-modal">＋</button>
 
@@ -3348,7 +3392,129 @@
       document.getElementById('daily-greeting-overlay').classList.add('show');
     }
 
-    document.getElementById('weather-header-btn').addEventListener('click', showGreetingWeather);
+    const featureMenu = document.getElementById('feature-menu');
+    const featureMenuButton = document.getElementById('weather-header-btn');
+    function closeFeatureMenu() {
+      featureMenu.style.display = 'none';
+      featureMenuButton.setAttribute('aria-expanded', 'false');
+    }
+    featureMenuButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const opening = featureMenu.style.display === 'none';
+      featureMenu.style.display = opening ? 'block' : 'none';
+      featureMenuButton.setAttribute('aria-expanded', String(opening));
+    });
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.feature-menu-wrap')) closeFeatureMenu();
+    });
+    document.getElementById('feature-weather').addEventListener('click', () => {
+      closeFeatureMenu();
+      showGreetingWeather();
+    });
+
+    const countdownOverlay = document.getElementById('countdown-overlay');
+    const countdownHours = document.getElementById('countdown-hours');
+    const countdownMinutes = document.getElementById('countdown-minutes');
+    const countdownDisplay = document.getElementById('countdown-display');
+    const countdownStatus = document.getElementById('countdown-status');
+    const countdownStart = document.getElementById('countdown-start');
+    const countdownPause = document.getElementById('countdown-pause');
+    let countdownInterval = null;
+    let countdownEndAt = 0;
+    let countdownRemaining = 1500000;
+    let countdownRunning = false;
+    let countdownFinished = false;
+    function formatCountdown(ms) {
+      const total = Math.max(0, Math.ceil(ms / 1000));
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const sec = total % 60;
+      return h > 0
+        ? String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0')
+        : String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    }
+    function renderCountdown() {
+      countdownDisplay.textContent = formatCountdown(countdownRemaining);
+      countdownHours.disabled = countdownRunning;
+      countdownMinutes.disabled = countdownRunning;
+      countdownStart.disabled = countdownRunning || countdownFinished;
+      countdownPause.disabled = !countdownRunning;
+    }
+    function stopCountdownInterval() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+    function finishCountdown() {
+      stopCountdownInterval();
+      countdownRunning = false;
+      countdownFinished = true;
+      countdownRemaining = 0;
+      countdownStatus.textContent = '時間到！休息一下吧。';
+      renderCountdown();
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('倒數計時結束', { body: '你設定的時間到了！', icon: './icons/icon.svg' });
+      } else if (document.visibilityState === 'visible') {
+        alert('倒數計時結束！');
+      }
+    }
+    function tickCountdown() {
+      countdownRemaining = Math.max(0, countdownEndAt - Date.now());
+      renderCountdown();
+      if (countdownRemaining <= 0) finishCountdown();
+    }
+    function openCountdown() {
+      closeFeatureMenu();
+      countdownOverlay.classList.add('show');
+      renderCountdown();
+    }
+    document.getElementById('feature-countdown').addEventListener('click', openCountdown);
+    document.getElementById('countdown-close').addEventListener('click', () => countdownOverlay.classList.remove('show'));
+    countdownOverlay.addEventListener('click', event => {
+      if (event.target === countdownOverlay) countdownOverlay.classList.remove('show');
+    });
+    countdownStart.addEventListener('click', async () => {
+      if (countdownFinished) return;
+      if (!countdownRunning) {
+        if (countdownRemaining <= 0 || countdownStatus.textContent === '準備就緒') {
+          const hours = Math.max(0, Math.min(99, Number(countdownHours.value) || 0));
+          const minutes = Math.max(0, Math.min(59, Number(countdownMinutes.value) || 0));
+          countdownRemaining = (hours * 60 + minutes) * 60000;
+        }
+        if (countdownRemaining <= 0) {
+          countdownStatus.textContent = '請設定大於 0 的時間';
+          return;
+        }
+        if ('Notification' in window && Notification.permission === 'default') {
+          try { await Notification.requestPermission(); } catch (_) {}
+        }
+        countdownEndAt = Date.now() + countdownRemaining;
+        countdownRunning = true;
+        countdownStatus.textContent = '倒數進行中';
+        countdownInterval = setInterval(tickCountdown, 250);
+        tickCountdown();
+      }
+      renderCountdown();
+    });
+    countdownPause.addEventListener('click', () => {
+      if (!countdownRunning) return;
+      countdownRemaining = Math.max(0, countdownEndAt - Date.now());
+      stopCountdownInterval();
+      countdownRunning = false;
+      countdownStatus.textContent = '已暫停';
+      renderCountdown();
+    });
+    document.getElementById('countdown-reset').addEventListener('click', () => {
+      stopCountdownInterval();
+      countdownRunning = false;
+      countdownFinished = false;
+      countdownRemaining = (Math.max(0, Number(countdownHours.value) || 0) * 60 + Math.max(0, Math.min(59, Number(countdownMinutes.value) || 0))) * 60000;
+      countdownStatus.textContent = '準備就緒';
+      renderCountdown();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (countdownRunning) tickCountdown();
+    });
+    
 
     let weatherTestMode = false;
     const testCenterPassword = '20080117';
