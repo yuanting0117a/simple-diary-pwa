@@ -879,7 +879,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.32</div>
+      <div class="app-version">v56.33</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1343,6 +1343,14 @@
       </div>
       <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">按鈕選擇會先暫存；按底部「確認並儲存」才會套用。取消則完全還原。開啟定位時，儲存後瀏覽器才會詢問權限。<span id="test-center-entry" style="display:inline;"><button type="button" id="test-center-open" aria-label="開啟管理測試功能" title="需輸入密碼" style="display:inline-block; width:8px; height:12px; margin-left:1px; padding:0; border:0; background:transparent; opacity:0; vertical-align:middle; cursor:pointer;"></button></span></div>
       <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">定位只用於查詢所在地天氣與行政區名稱，不會保存精確座標；若曾在瀏覽器封鎖定位，需到網站權限設定重新允許。</div>
+
+      <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">🔔 雲端通知：</div>
+      <div id="cloud-push-status" role="status" style="font-size:0.78rem; padding:9px; border-radius:9px; margin-bottom:8px; background:#f1f3f5; color:#495057;">⚪ 尚未啟用雲端通知</div>
+      <div style="display:flex; gap:8px; margin-bottom:6px;">
+        <button type="button" class="btn btn-primary" id="cloud-push-enable" style="flex:1;">🔔 開啟通知</button>
+        <button type="button" class="btn" id="cloud-push-test" style="flex:1;" disabled>📨 測試推播</button>
+      </div>
+      <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">提醒排程會同步至雲端；記事內容仍保存在本機。需允許瀏覽器通知，且裝置需先連線完成設定。</div>
 
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">資料備份與還原：</div>
       <div style="display:flex; gap:8px; margin-bottom:8px;">
@@ -1994,6 +2002,197 @@
       inputModalOverlay.classList.remove('show');
     });
 
+    // Cloud Push：只同步提醒所需的標題、提醒時間與開始時間，不上傳完整記事資料。
+    const PUSH_API = 'https://simple-diary-sync.yuanting0117a.workers.dev';
+    const PUSH_DEVICE_KEY = 'SIMPLE_DIARY_PUSH_DEVICE';
+    const PUSH_ENABLED_KEY = 'SIMPLE_DIARY_PUSH_ENABLED';
+
+    function pushStatus(message, isError = false) {
+      const el = document.getElementById('cloud-push-status');
+      if (el) {
+        el.textContent = message;
+        el.style.background = isError ? '#ffebee' : '#e8f5e9';
+        el.style.color = isError ? '#b71c1c' : '#1b5e20';
+      }
+    }
+
+    function urlBase64ToUint8Array(value) {
+      const padding = '='.repeat((4 - value.length % 4) % 4);
+      const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(base64);
+      return Uint8Array.from(raw, char => char.charCodeAt(0));
+    }
+
+    function getPushDevice() {
+      try { return JSON.parse(localStorage.getItem(PUSH_DEVICE_KEY) || 'null'); }
+      catch { return null; }
+    }
+
+    async function pushRequest(path, body, token = '') {
+      const response = await fetch(PUSH_API + path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: 'Bearer ' + token } : {})
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'HTTP ' + response.status);
+      return data;
+    }
+
+    function itemDateAt(mmdd, time = '00:00') {
+      if (!mmdd || !/^\\d{4}$/.test(mmdd)) return null;
+      const now = new Date();
+      const month = Number(mmdd.slice(0, 2)) - 1;
+      const day = Number(mmdd.slice(2, 4));
+      let year = now.getFullYear();
+      let date = new Date(year, month, day);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (date < today && today - date > 180 * 86400000) date = new Date(year + 1, month, day);
+      const parts = /^([0-2]\\d):([0-5]\\d)$/.exec(time || '00:00');
+      date.setHours(parts ? Number(parts[1]) : 0, parts ? Number(parts[2]) : 0, 0, 0);
+      return date;
+    }
+
+    function buildCloudReminders() {
+      const now = Date.now();
+      const result = [];
+      const expanded = getExpandedItems();
+      const add = (item, dateKey, kind, at, startsAt) => {
+        if (!at || at.getTime() <= now || result.length >= 300) return;
+        const repeatIndex = Number(item.repeatIndex) || 0;
+        const baseId = String(item.id).split('_rep_')[0];
+        result.push({
+          id: [baseId, repeatIndex, dateKey, kind].join(':').slice(0, 180),
+          title: (item.emoji || '📌') + ' ' + (item.text || '行程提醒'),
+          body: kind === 'morning' ? '今天有安排，記得查看簡潔記事。' :
+            kind === 'before1h' ? '距離開始時間還有 1 小時。' :
+            kind === 'before10m' ? '距離開始時間還有 10 分鐘。' :
+            '這項多天選一事項即將截止，記得完成。',
+          reminderAt: at.getTime(),
+          startsAt: startsAt ? startsAt.getTime() : at.getTime()
+        });
+      };
+
+      expanded.forEach(item => {
+        if (item.completed || !item.date) return;
+        const start = itemDateAt(item.date);
+        if (!start) return;
+        const end = itemDateAt(item.endDate || item.date, item.endTime || '23:00') || start;
+        const startKey = start.getFullYear() + String(start.getMonth() + 1).padStart(2, '0') + String(start.getDate()).padStart(2, '0');
+        const endKey = end.getFullYear() + String(end.getMonth() + 1).padStart(2, '0') + String(end.getDate()).padStart(2, '0');
+        const days = Math.min(366, Math.max(1, Math.round((new Date(end.getFullYear(), end.getMonth(), end.getDate()) - new Date(start.getFullYear(), start.getMonth(), start.getDate())) / 86400000) + 1));
+        for (let offset = 0; offset < days; offset++) {
+          const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset);
+          const key = day.getFullYear() + String(day.getMonth() + 1).padStart(2, '0') + String(day.getDate()).padStart(2, '0');
+          const morning = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 6, 0);
+          add(item, key, 'morning', morning, start);
+
+          if (item.taskType === 'pick-one') continue;
+          if (item.time) {
+            const [hh, mm] = item.time.split(':').map(Number);
+            const startAt = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hh || 0, mm || 0);
+            add(item, key, 'before1h', new Date(startAt.getTime() - 3600000), startAt);
+            add(item, key, 'before10m', new Date(startAt.getTime() - 600000), startAt);
+          }
+        }
+
+        if (item.taskType === 'pick-one') {
+          const deadline = item.endDate
+            ? itemDateAt(item.endDate, item.endTime || '23:00')
+            : itemDateAt(item.date, '23:00');
+          if (deadline) add(item, endKey, 'deadline1h', new Date(deadline.getTime() - 3600000), deadline);
+        }
+      });
+      return result.slice(0, 300);
+    }
+
+    async function syncCloudReminders() {
+      if (localStorage.getItem(PUSH_ENABLED_KEY) !== 'true') return;
+      const device = getPushDevice();
+      if (!device) return;
+      const reminders = buildCloudReminders();
+      await pushRequest('/api/sync', { deviceId: device.deviceId, reminders }, device.deviceToken);
+    }
+
+    async function enableCloudPush() {
+      const button = document.getElementById('cloud-push-enable');
+      if (button) button.disabled = true;
+      try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+          throw new Error('此瀏覽器不支援推播通知');
+        }
+        if (!window.isSecureContext) throw new Error('請使用 HTTPS 網站開啟通知');
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') throw new Error('尚未允許通知權限');
+        const registration = await navigator.serviceWorker.ready;
+        const configResponse = await fetch(PUSH_API + '/api/config');
+        if (!configResponse.ok) throw new Error('無法取得推播設定');
+        const config = await configResponse.json();
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(config.publicKey)
+          });
+        }
+        let device = getPushDevice();
+        if (!device) {
+          device = {
+            deviceId: crypto.randomUUID(),
+            deviceToken: Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')
+          };
+          localStorage.setItem(PUSH_DEVICE_KEY, JSON.stringify(device));
+        }
+        await pushRequest('/api/register', {
+          deviceId: device.deviceId,
+          deviceToken: device.deviceToken,
+          subscription: subscription.toJSON()
+        });
+        localStorage.setItem(PUSH_ENABLED_KEY, 'true');
+        await syncCloudReminders();
+        pushStatus('🟢 雲端通知已啟用，提醒已同步 ' + buildCloudReminders().length + ' 筆');
+        const testButton = document.getElementById('cloud-push-test');
+        if (testButton) testButton.disabled = false;
+      } catch (error) {
+        pushStatus('⚠️ 啟用失敗：' + error.message, true);
+        alert('雲端通知啟用失敗：' + error.message);
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function testCloudPush() {
+      try {
+        const device = getPushDevice();
+        if (!device) throw new Error('請先啟用雲端通知');
+        await pushRequest('/api/test', { deviceId: device.deviceId }, device.deviceToken);
+        pushStatus('🟢 測試推播已送出，請查看裝置通知');
+      } catch (error) {
+        pushStatus('⚠️ 測試失敗：' + error.message, true);
+        alert('測試推播失敗：' + error.message);
+      }
+    }
+
+    document.getElementById('cloud-push-enable').addEventListener('click', enableCloudPush);
+    document.getElementById('cloud-push-test').addEventListener('click', testCloudPush);
+
+    async function refreshCloudPushStatus() {
+      if (localStorage.getItem(PUSH_ENABLED_KEY) !== 'true') return;
+      const device = getPushDevice();
+      if (!device) return;
+      const testButton = document.getElementById('cloud-push-test');
+      if (testButton) testButton.disabled = false;
+      try {
+        await syncCloudReminders();
+        pushStatus('🟢 雲端通知已啟用，提醒已同步 ' + buildCloudReminders().length + ' 筆');
+      } catch (error) {
+        pushStatus('⚠️ 雲端同步失敗：' + error.message, true);
+      }
+    }
+
     function saveAndRender() {
       if (!isEditing) {
         try {
@@ -2003,6 +2202,7 @@
         }
       }
       render();
+      syncCloudReminders().catch(error => console.warn("Cloud reminder sync failed:", error));
     }
 
     function addDaysToMMDD(mmdd, daysToAdd) {
@@ -3477,9 +3677,9 @@
       });
     }
 
-    // 本機通知與頁面內提醒排程已移除，後續改由雲端通知服務處理。
-
+    // 本機通知已移除；雲端推播僅同步提醒必要欄位。
     render();
+    refreshCloudPushStatus();
 
     // 每次開啟都顯示今天有日期的事項；沒有日期的待辦不列入。
     function showTodayTasks() {
