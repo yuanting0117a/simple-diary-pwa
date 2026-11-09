@@ -1,5 +1,5 @@
 // Service worker for offline caching and PWA updates.
-const CACHE_NAME = 'simple-diary-pwa-v50';
+const CACHE_NAME = 'simple-diary-pwa-v51';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icons/icon.svg'];
 
 self.addEventListener('install', event => {
