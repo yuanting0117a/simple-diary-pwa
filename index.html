@@ -4041,9 +4041,24 @@
       countdownRemaining = 0;
       countdownStatus.textContent = '時間到！休息一下吧。';
       renderCountdown();
-      if (document.visibilityState === 'visible') {
-        alert('倒數計時結束！');
-      }
+      const showTimerNotice = async () => {
+        if ('Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+          try {
+            const registration = await navigator.serviceWorker.ready;
+            await registration.showNotification('簡潔記事｜計時器', {
+              body: '倒數計時結束！休息一下吧。',
+              icon: './icons/icon.svg',
+              badge: './icons/icon.svg',
+              tag: 'simple-diary-countdown'
+            });
+            return;
+          } catch (error) {
+            console.warn('Timer notification failed:', error);
+          }
+        }
+        if (document.visibilityState === 'visible') alert('倒數計時結束！');
+      };
+      showTimerNotice();
     }
     function tickCountdown() {
       countdownRemaining = Math.max(0, countdownEndAt - Date.now());
