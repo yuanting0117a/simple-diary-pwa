@@ -879,7 +879,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.30</div>
+      <div class="app-version">v56.31</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2027,9 +2027,11 @@
       return `${newMM}${newDD}`;
     }
 
-    function confirmComplete(id) {
-      const item = db.find(x => x.id === id);
-      if (!item || item.completed) return;
+    function confirmComplete(id, repeatIndex = 0) {
+      const item = db.find(x => String(x.id) === String(id));
+      if (!item) return;
+      repeatIndex = Math.max(0, Number(repeatIndex) || 0);
+      if (repeatIndex === 0 ? item.completed : (Array.isArray(item.completedRepeatInstances) && item.completedRepeatInstances.includes(repeatIndex))) return;
 
       let dialog = document.getElementById('complete-confirm-dialog');
       if (!dialog) {
@@ -2040,13 +2042,22 @@
         document.body.appendChild(dialog);
         document.getElementById('complete-confirm-no').addEventListener('click', () => dialog.remove());
         document.getElementById('complete-confirm-yes').addEventListener('click', () => {
-          const targetId = Number(dialog.dataset.itemId);
-          const target = db.find(x => x.id === targetId);
-          if (target && !target.completed) {
-            target.completed = true;
+          const targetId = dialog.dataset.itemId;
+          const occurrence = Math.max(0, Number(dialog.dataset.repeatIndex) || 0);
+          const target = db.find(x => String(x.id) === targetId);
+          if (target) {
+            const markOccurrence = item => {
+              if (occurrence === 0) {
+                item.completed = true;
+              } else {
+                if (!Array.isArray(item.completedRepeatInstances)) item.completedRepeatInstances = [];
+                if (!item.completedRepeatInstances.includes(occurrence)) item.completedRepeatInstances.push(occurrence);
+              }
+            };
+            markOccurrence(target);
             if (target.taskType === 'pick-one' && target.groupId) {
               db.forEach(x => {
-                if (x.groupId === target.groupId) x.completed = true;
+                if (x.groupId === target.groupId) markOccurrence(x);
               });
             }
             saveAndRender();
@@ -2058,6 +2069,7 @@
         });
       }
       dialog.dataset.itemId = String(id);
+      dialog.dataset.repeatIndex = String(repeatIndex);
       document.getElementById('complete-confirm-message').textContent =
         '要將「' + (item.text || '未命名事項') + '」標記為完成嗎？';
       dialog.style.display = 'flex';
@@ -2222,6 +2234,8 @@
               id: `${item.id}_rep_${week}`,
               date: nextStart,
               endDate: nextEnd,
+              completed: Array.isArray(item.completedRepeatInstances) && item.completedRepeatInstances.includes(week),
+              repeatIndex: week,
               isRepeatInstance: true
             });
           }
@@ -2356,10 +2370,12 @@
       let modeHint = '';
       if (item.taskType === 'pick-one') modeHint = ' (多天一次)';
 
-      const realId = String(item.id).split('_rep_')[0];
+      const itemIdParts = String(item.id).split('_rep_');
+      const realId = itemIdParts[0];
+      const repeatIndex = itemIdParts.length > 1 ? Number(itemIdParts[1]) || 0 : 0;
 
       li.innerHTML = `
-        <div class="item-content" onclick="confirmComplete(${realId})">
+        <div class="item-content" onclick="confirmComplete('${realId}', ${repeatIndex})">
           <span class="item-emoji">${em}</span>
           ${timeDisp ? `<span class="item-time">${timeDisp}</span>` : ''}
           <span class="item-text ${item.completed ? 'completed' : ''}">${item.text}${modeHint}</span>
