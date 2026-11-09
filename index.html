@@ -59,6 +59,9 @@
 
     .app-title { font-size: 1.2rem; font-weight: 700; }
     .weather-header-btn { margin-left: 10px; font-size: 1.2rem; }
+    /* 標題列的天氣、設定與編輯按鈕統一採用清理按鈕的尺寸。 */
+    .header-top > .weather-header-btn,
+    .header-actions .icon-btn { width: 40px; height: 32px; min-width: 40px; padding: 4px 8px; border-radius: 8px; font-size: 1rem; box-shadow: none; }
     .app-version { font-size: 0.72rem; color: #888; margin-left: auto; margin-right: 8px; white-space: nowrap; align-self: center; }
     .header-actions { display: flex; gap: 8px; align-items: center; }
     .icon-btn { width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #d7dce5; border-radius: 12px; background: #fff; color: #343a46; font-size: 1.45rem; font-weight: 800; box-shadow: 0 2px 5px rgba(25,35,55,.10); cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
@@ -694,7 +697,7 @@
     .weather-location { color: #718096; font-size: .72rem; font-weight: 400; margin-top: 4px; }
     .location-consent-actions { display: flex; gap: 8px; margin-top: 10px; }
     .location-consent-actions .btn { flex: 1; font-size: .78rem; }
-    .weather-details { display: flex; justify-content: space-around; gap: 8px; margin-top: 10px; padding-top: 9px; border-top: 1px solid #dce5ef; color: #586a7c; font-size: .78rem; }
+    .weather-details { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; margin-top: 10px; padding-top: 9px; border-top: 1px solid #dce5ef; color: #586a7c; font-size: .78rem; }
     .today-tasks-modal { text-align: left; max-height: 82vh; display: flex; flex-direction: column; }
     .today-tasks-modal .greeting-emoji, .today-tasks-modal .greeting-title, .today-tasks-modal .greeting-message { text-align: center; }
     .today-tasks-list { list-style: none; overflow-y: auto; max-height: 48vh; }
@@ -765,7 +768,7 @@
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
       <button type="button" class="btn icon-btn weather-header-btn" id="weather-header-btn" title="每日問候與天氣" aria-label="每日問候與天氣">☀️</button>
-      <div class="app-version">v56.11</div>
+      <div class="app-version">v56.12</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -801,6 +804,9 @@
         </div>
         <div class="weather-details" id="weather-details" style="display:none;">
           <span id="weather-high-low"></span>
+          <span id="weather-feels-like"></span>
+          <span id="weather-wind"></span>
+          <span id="weather-humidity"></span>
           <span id="weather-rain"></span>
         </div>
       </div>
@@ -3010,15 +3016,16 @@
       if (actions) actions.style.display = show ? 'flex' : 'none';
     }
 
-    function weatherAdvice(temp, rain, wind, code) {
+    function weatherAdvice(feelsLike, rain, wind, gust, code) {
       if ([95, 96, 99].includes(code)) return '附近可能有雷雨，外出記得留意天氣變化。';
       if (rain != null && rain >= 60) return '今天降雨機率偏高，出門記得帶雨傘！';
-      if (wind != null && wind >= 35) return '今天風勢比較強，外出請留意強風。';
-      if (temp <= 16) return '今天比較冷，出門記得多穿一件外套喔！';
-      if (temp >= 30) return '今天有點熱，記得補充水分並適時休息。';
-      if (code === 0 && temp >= 25) return '今天陽光不錯，外出記得做好防曬！';
+      if ((gust != null && gust >= 50) || (wind != null && wind >= 35)) return '今天風勢比較強，外出請留意強風。';
+      if (feelsLike != null && feelsLike <= 17) return '晴朗也不代表不冷喔！目前體感偏冷，出門記得多穿一件。';
+      if (feelsLike != null && feelsLike <= 20) return '今天體感稍涼，早晚記得帶件薄外套。';
+      if (feelsLike >= 32) return '今天體感偏熱，記得補充水分並適時休息。';
       if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return '今天可能會下雨，出門記得帶雨具。';
-      if (temp >= 20 && temp <= 27 && (rain == null || rain < 30)) return '今天氣候還不錯，祝你有愉快的一天！';
+      if (code === 0 && feelsLike >= 25) return '今天陽光不錯，外出記得做好防曬！';
+      if (feelsLike >= 20 && feelsLike <= 27 && (rain == null || rain < 30)) return '今天體感舒適，祝你有愉快的一天！';
       return '出門前可以留意一下天氣變化，祝你今天順利！';
     }
 
@@ -3042,7 +3049,7 @@
           const longitude = position.coords.longitude;
           const url = 'https://api.open-meteo.com/v1/forecast?latitude=' +
             encodeURIComponent(latitude) + '&longitude=' + encodeURIComponent(longitude) +
-            '&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto';
+            '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto';
           const response = await fetch(url);
           if (!response.ok) throw new Error('weather request failed');
           const data = await response.json();
@@ -3067,16 +3074,23 @@
           }
 
           const temperature = Math.round(current.temperature_2m);
+          const feelsLike = Math.round(current.apparent_temperature ?? current.temperature_2m);
           const rain = daily.precipitation_probability_max?.[0];
           const wind = current.wind_speed_10m;
+          const gust = current.wind_gusts_10m;
+          const humidity = current.relative_humidity_2m;
           document.getElementById('weather-temp').textContent = weatherEmoji(current.weather_code) + ' ' + temperature + '°C';
           document.getElementById('weather-condition').textContent = weatherText(current.weather_code);
           document.getElementById('weather-location').textContent = '⌖ ' + placeName;
           document.getElementById('weather-high-low').textContent =
             '最高 ' + Math.round(daily.temperature_2m_max?.[0] ?? current.temperature_2m) + '° · 最低 ' +
             Math.round(daily.temperature_2m_min?.[0] ?? current.temperature_2m) + '°';
+          document.getElementById('weather-feels-like').textContent = '體感 ' + feelsLike + '°';
+          document.getElementById('weather-wind').textContent = '風速 ' + (wind == null ? '暫無資料' : Math.round(wind) + ' km/h') +
+            (gust == null ? '' : '（陣風 ' + Math.round(gust) + '）');
+          document.getElementById('weather-humidity').textContent = '濕度 ' + (humidity == null ? '暫無資料' : humidity + '%');
           document.getElementById('weather-rain').textContent = '降雨機率 ' + (rain == null ? '暫無資料' : rain + '%');
-          const advice = weatherAdvice(temperature, rain, wind, current.weather_code);
+          const advice = weatherAdvice(feelsLike, rain, wind, gust, current.weather_code);
           greetingMessage.textContent = greetingMessage.textContent + ' ' + advice;
           status.style.display = 'none';
           main.style.display = 'flex';
