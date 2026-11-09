@@ -760,7 +760,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v36.25</div>
+      <div class="app-version">v45</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1927,9 +1927,13 @@
         col.className = `gantt-day-col ${weekday === 1 && day > 1 ? 'week-start' : ''} ${isCurrentMonth && day === todayDateNum ? 'today-head' : ''}`;
         col.style.width = `${colWidth}px`;
         col.style.flex = `0 0 ${colWidth}px`;
-        col.innerHTML = isCurrentMonth && day === todayDateNum
+        const dateLabel = isCurrentMonth && day === todayDateNum
           ? `<div class="today-marker-badge">${day}</div>`
           : String(day);
+        col.innerHTML = `<div style="height:22px;display:flex;align-items:center;justify-content:center;">${dateLabel}</div>
+          <div style="display:flex;justify-content:space-between;padding:0 2px;font-size:.52rem;font-weight:normal;color:var(--text-sub);">
+            <span>00</span><span>06</span><span>12</span><span>18</span>
+          </div>`;
         ganttHeader.appendChild(col);
       }
 
@@ -1962,7 +1966,7 @@
         .filter(x => x.date && x.date.substring(0, 2) === currMonthMM)
         .map(item => {
           const parseDate = (md, fallback) => {
-            if (!md || !/^\\d{4}$/.test(md)) return fallback;
+            if (!md || !/^\d{4}$/.test(md)) return fallback;
             let d = new Date(viewYear, Number(md.slice(0, 2)) - 1, Number(md.slice(2, 4)));
             if (d.getMonth() !== Number(md.slice(0, 2)) - 1 || d.getDate() !== Number(md.slice(2, 4))) return fallback;
             return d;
@@ -1973,7 +1977,7 @@
           if (endDate < startDate) endDate = new Date(endDate.getFullYear() + 1, endDate.getMonth(), endDate.getDate());
 
           const dayOffset = d => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(viewYear, viewMonth, 1)) / 86400000);
-          const readMinutes = value => /^\\d{4}$/.test(value || '')
+          const readMinutes = value => /^\d{4}$/.test(value || '')
             ? Math.min(1439, Number(value.slice(0, 2)) * 60 + Number(value.slice(2, 4)))
             : null;
           const startMinutes = readMinutes(item.time);
