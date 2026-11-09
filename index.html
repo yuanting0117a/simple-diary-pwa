@@ -1482,8 +1482,12 @@
       e.preventDefault(); // 防範手機端 Submit 觸發刷新
       const em = inEmoji.value.trim() || userDefaultEmoji;
       const d = btnPickDate.getAttribute('data-val') || '';
-      const t = inTime.value.trim();
-      const et = inEndTime.value.trim();
+      // 允許 3 位數時間輸入，例如 900 自動補成 0900。
+      const normalizeTime = value => /^\d{3}$/.test(value) ? '0' + value : value;
+      const t = normalizeTime(inTime.value.trim());
+      const et = normalizeTime(inEndTime.value.trim());
+      inTime.value = t;
+      inEndTime.value = et;
       const txt = inText.value.trim();
 
       if (!txt) {
