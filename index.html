@@ -879,7 +879,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.33</div>
+      <div class="app-version">v56.34</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1350,7 +1350,7 @@
         <button type="button" class="btn btn-primary" id="cloud-push-enable" style="flex:1;">🔔 開啟通知</button>
         <button type="button" class="btn" id="cloud-push-test" style="flex:1;" disabled>📨 測試推播</button>
       </div>
-      <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">提醒排程會同步至雲端；記事內容仍保存在本機。需允許瀏覽器通知，且裝置需先連線完成設定。</div>
+      <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">雲端通知是選用功能，不開啟也能正常使用記事。開啟後才會詢問通知權限；測試通知約 1 分鐘後送達。</div>
 
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">資料備份與還原：</div>
       <div style="display:flex; gap:8px; margin-bottom:8px;">
@@ -2122,11 +2122,11 @@
       if (button) button.disabled = true;
       try {
         if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-          throw new Error('此瀏覽器不支援推播通知');
+          throw new Error('此瀏覽器不支援推播通知；記事功能仍可正常使用');
         }
         if (!window.isSecureContext) throw new Error('請使用 HTTPS 網站開啟通知');
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') throw new Error('尚未允許通知權限');
+        if (permission !== 'granted') throw new Error('未允許通知權限；不影響記事功能，可稍後再開啟');
         const registration = await navigator.serviceWorker.ready;
         const configResponse = await fetch(PUSH_API + '/api/config');
         if (!configResponse.ok) throw new Error('無法取得推播設定');
@@ -2154,37 +2154,81 @@
         localStorage.setItem(PUSH_ENABLED_KEY, 'true');
         await syncCloudReminders();
         pushStatus('🟢 雲端通知已啟用，提醒已同步 ' + buildCloudReminders().length + ' 筆');
+        if (button) button.textContent = '🔕 關閉通知';
         const testButton = document.getElementById('cloud-push-test');
         if (testButton) testButton.disabled = false;
       } catch (error) {
-        pushStatus('⚠️ 啟用失敗：' + error.message, true);
-        alert('雲端通知啟用失敗：' + error.message);
+        pushStatus('⚪ 雲端通知未啟用：' + error.message, true);
+        alert('雲端通知未啟用：' + error.message + '\n記事功能不受影響。');
       } finally {
         if (button) button.disabled = false;
       }
     }
 
-    async function testCloudPush() {
+    async function disableCloudPush() {
+      const button = document.getElementById('cloud-push-enable');
+      if (button) button.disabled = true;
       try {
         const device = getPushDevice();
-        if (!device) throw new Error('請先啟用雲端通知');
-        await pushRequest('/api/test', { deviceId: device.deviceId }, device.deviceToken);
-        pushStatus('🟢 測試推播已送出，請查看裝置通知');
+        if (device) await pushRequest('/api/unregister', { deviceId: device.deviceId }, device.deviceToken);
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          if (subscription) await subscription.unsubscribe();
+        }
+        localStorage.removeItem(PUSH_ENABLED_KEY);
+        localStorage.removeItem(PUSH_DEVICE_KEY);
+        if (button) button.textContent = '🔔 開啟通知';
+        const testButton = document.getElementById('cloud-push-test');
+        if (testButton) testButton.disabled = true;
+        pushStatus('⚪ 雲端通知已關閉；記事功能照常使用');
       } catch (error) {
-        pushStatus('⚠️ 測試失敗：' + error.message, true);
-        alert('測試推播失敗：' + error.message);
+        pushStatus('⚠️ 關閉通知時發生問題：' + error.message, true);
+        alert('關閉通知時發生問題：' + error.message);
+      } finally {
+        if (button) button.disabled = false;
       }
     }
 
-    document.getElementById('cloud-push-enable').addEventListener('click', enableCloudPush);
+    async function toggleCloudPush() {
+      if (localStorage.getItem(PUSH_ENABLED_KEY) === 'true') await disableCloudPush();
+      else await enableCloudPush();
+    }
+
+    async function testCloudPush() {
+      const testButton = document.getElementById('cloud-push-test');
+      if (testButton) testButton.disabled = true;
+      try {
+        const device = getPushDevice();
+        if (!device || localStorage.getItem(PUSH_ENABLED_KEY) !== 'true') throw new Error('請先開啟雲端通知');
+        await pushRequest('/api/test', { deviceId: device.deviceId }, device.deviceToken);
+        pushStatus('🟢 測試通知已排入雲端，約 1 分鐘後送達（排程可能稍晚）');
+      } catch (error) {
+        pushStatus('⚠️ 測試失敗：' + error.message, true);
+        alert('測試推播失敗：' + error.message);
+      } finally {
+        if (testButton) testButton.disabled = localStorage.getItem(PUSH_ENABLED_KEY) !== 'true';
+      }
+    }
+
+    document.getElementById('cloud-push-enable').addEventListener('click', toggleCloudPush);
     document.getElementById('cloud-push-test').addEventListener('click', testCloudPush);
 
     async function refreshCloudPushStatus() {
-      if (localStorage.getItem(PUSH_ENABLED_KEY) !== 'true') return;
-      const device = getPushDevice();
-      if (!device) return;
+      const enabled = localStorage.getItem(PUSH_ENABLED_KEY) === 'true';
+      const button = document.getElementById('cloud-push-enable');
       const testButton = document.getElementById('cloud-push-test');
-      if (testButton) testButton.disabled = false;
+      if (button) button.textContent = enabled ? '🔕 關閉通知' : '🔔 開啟通知';
+      if (testButton) testButton.disabled = !enabled;
+      if (!enabled) return;
+      const device = getPushDevice();
+      if (!device) {
+        localStorage.removeItem(PUSH_ENABLED_KEY);
+        if (button) button.textContent = '🔔 開啟通知';
+        if (testButton) testButton.disabled = true;
+        pushStatus('⚪ 尚未啟用雲端通知');
+        return;
+      }
       try {
         await syncCloudReminders();
         pushStatus('🟢 雲端通知已啟用，提醒已同步 ' + buildCloudReminders().length + ' 筆');
