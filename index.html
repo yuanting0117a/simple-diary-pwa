@@ -1762,7 +1762,7 @@
 
         let curr = startDate < todayKeyForItems ? todayKeyForItems : startDate;
         let safetyCounter = 0;
-        while (curr <= endDate && safetyCounter < 7) {
+        while (curr <= endDate && safetyCounter < 366) {
           if (!dateMap[curr]) dateMap[curr] = [];
           dateMap[curr].push(item);
           curr = addDaysToMMDD(curr, 1);
@@ -1965,7 +1965,7 @@
 
           if (isNaN(startDayNum)) return;
 
-          const spanDays = Math.min(7, Math.max(1, (endDayNum - startDayNum) + 1));
+          const spanDays = Math.max(1, (endDayNum - startDayNum) + 1);
           const leftPos = (startDayNum - 1) * colWidth + 4;
           const barWidth = (spanDays * colWidth) - 8;
 
@@ -2642,7 +2642,7 @@
         let current = item.date;
         const end = item.endDate || item.date;
         let guard = 0;
-        while (current <= end && guard < 7) {
+        while (current <= end && guard < 366) {
           if (current === todayMMDD) items.push(item);
           current = addDaysToMMDD(current, 1);
           guard++;
