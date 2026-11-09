@@ -603,16 +603,19 @@
       background: #f0f0f5;
     }
 
+    .gantt-day-divider,
     .gantt-week-divider {
       position: absolute;
       top: 0;
       bottom: 0;
       width: 1px;
-      background: #c7c7cc;
       z-index: 2;
       pointer-events: none;
     }
-    .gantt-day-col.week-start { border-left: 1px solid #c7c7cc; }
+    .gantt-day-divider { background: #e2e5eb; }
+    .gantt-week-divider { background: #6b9bd1; }
+    .gantt-day-col.day-start { border-left: 1px solid #e2e5eb; }
+    .gantt-day-col.week-start { border-left-color: #6b9bd1; }
     .cal-item { cursor: pointer; }
     .detail-modal {
       background: #fff; border-radius: 14px; width: 90%; max-width: 360px;
@@ -760,7 +763,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v54</div>
+      <div class="app-version">v55</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1927,7 +1930,7 @@
       for (let day = 1; day <= daysInMonth; day++) {
         const col = document.createElement('div');
         const weekday = new Date(viewYear, viewMonth, day).getDay();
-        col.className = `gantt-day-col ${weekday === 1 && day > 1 ? 'week-start' : ''} ${isCurrentMonth && day === todayDateNum ? 'today-head' : ''}`;
+        col.className = `gantt-day-col ${day > 1 ? 'day-start' : ''} ${weekday === 1 && day > 1 ? 'week-start' : ''} ${isCurrentMonth && day === todayDateNum ? 'today-head' : ''}`;
         col.style.width = `${colWidth}px`;
         col.style.flex = `0 0 ${colWidth}px`;
         const dateLabel = isCurrentMonth && day === todayDateNum
@@ -1940,10 +1943,12 @@
         ganttHeader.appendChild(col);
       }
 
+      // 每日使用淡灰分隔線；週一改用同樣細度的藍色分隔線。
       for (let day = 2; day <= daysInMonth; day++) {
-        if (new Date(viewYear, viewMonth, day).getDay() !== 1) continue;
         const divider = document.createElement('div');
-        divider.className = 'gantt-week-divider';
+        divider.className = new Date(viewYear, viewMonth, day).getDay() === 1
+          ? 'gantt-week-divider'
+          : 'gantt-day-divider';
         divider.style.left = `${(day - 1) * colWidth}px`;
         ganttBody.appendChild(divider);
       }
@@ -2400,7 +2405,7 @@
 
         if (i < count && d.getDay() === 1) {
           c.strokeStyle = '#3478d4';
-          c.lineWidth = 3;
+          c.lineWidth = 1;
           c.beginPath();
           c.moveTo(x, headerTop - 24);
           c.lineTo(x, canvas.height - pad);
