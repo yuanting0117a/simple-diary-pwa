@@ -1909,16 +1909,15 @@
       const viewYear = timelineDate.getFullYear();
       const viewMonth = timelineDate.getMonth();
       const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-
       const now = new Date();
-      const isCurrentMonth = (now.getFullYear() === viewYear && now.getMonth() === viewMonth);
+      const isCurrentMonth = now.getFullYear() === viewYear && now.getMonth() === viewMonth;
       const todayDateNum = now.getDate();
 
       monthLabel.innerText = `${viewYear}年 ${viewMonth + 1}月`;
 
-      const colWidth = 45;
+      // 每日 96px，將一天拆成 24 個小時刻度（每小時 4px）。
+      const colWidth = 96;
       const minWidthPx = daysInMonth * colWidth;
-
       ganttHeader.style.minWidth = `${minWidthPx}px`;
       ganttBody.style.minWidth = `${minWidthPx}px`;
 
@@ -1926,11 +1925,11 @@
         const col = document.createElement('div');
         const weekday = new Date(viewYear, viewMonth, day).getDay();
         col.className = `gantt-day-col ${weekday === 1 && day > 1 ? 'week-start' : ''} ${isCurrentMonth && day === todayDateNum ? 'today-head' : ''}`;
-        if (isCurrentMonth && day === todayDateNum) {
-          col.innerHTML = `<div class="today-marker-badge">${day}</div>`;
-        } else {
-          col.innerText = day;
-        }
+        col.style.width = `${colWidth}px`;
+        col.style.flex = `0 0 ${colWidth}px`;
+        col.innerHTML = isCurrentMonth && day === todayDateNum
+          ? `<div class="today-marker-badge">${day}</div>`
+          : String(day);
         ganttHeader.appendChild(col);
       }
 
@@ -1943,10 +1942,9 @@
       }
 
       if (isCurrentMonth) {
-        const todayLineLeft = (todayDateNum - 1) * colWidth + (colWidth / 2);
         const todayLine = document.createElement('div');
         todayLine.className = 'today-line';
-        todayLine.style.left = `${todayLineLeft}px`;
+        todayLine.style.left = `${(todayDateNum - 1) * colWidth + colWidth / 2}px`;
         ganttBody.appendChild(todayLine);
       }
 
@@ -1955,73 +1953,96 @@
       todayForTimeline.setHours(0, 0, 0, 0);
       const expandedItems = getExpandedItems().filter(x => {
         const deadline = x.endDate || x.date;
+        if (!deadline) return false;
         const deadlineDate = new Date(todayForTimeline.getFullYear(), Number(deadline.slice(0, 2)) - 1, Number(deadline.slice(2, 4)));
         return deadlineDate >= todayForTimeline;
       });
+
       const monthItems = expandedItems
         .filter(x => x.date && x.date.substring(0, 2) === currMonthMM)
-        .sort((a, b) => {
-          const deadlineA = a.endDate || a.date;
-          const deadlineB = b.endDate || b.date;
-          return deadlineA.localeCompare(deadlineB)
-            || a.date.localeCompare(b.date)
-            || (a.time || '9999').localeCompare(b.time || '9999')
-            || String(a.id).localeCompare(String(b.id));
-        });
+        .map(item => {
+          const parseDate = (md, fallback) => {
+            if (!md || !/^\\d{4}$/.test(md)) return fallback;
+            let d = new Date(viewYear, Number(md.slice(0, 2)) - 1, Number(md.slice(2, 4)));
+            if (d.getMonth() !== Number(md.slice(0, 2)) - 1 || d.getDate() !== Number(md.slice(2, 4))) return fallback;
+            return d;
+          };
+          const startDate = parseDate(item.date, null);
+          if (!startDate) return null;
+          let endDate = parseDate(item.endDate || item.date, startDate);
+          if (endDate < startDate) endDate = new Date(endDate.getFullYear() + 1, endDate.getMonth(), endDate.getDate());
+
+          const dayOffset = d => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(viewYear, viewMonth, 1)) / 86400000);
+          const readMinutes = value => /^\\d{4}$/.test(value || '')
+            ? Math.min(1439, Number(value.slice(0, 2)) * 60 + Number(value.slice(2, 4)))
+            : null;
+          const startMinutes = readMinutes(item.time);
+          const endMinutes = readMinutes(item.endTime);
+          const startOffset = dayOffset(startDate);
+          let endOffset = dayOffset(endDate);
+          let startX, endX;
+
+          if (startMinutes === null) {
+            // 沒有指定時間：維持整日／跨日的顯示方式。
+            startX = startOffset * colWidth;
+            endX = (endOffset + 1) * colWidth;
+          } else {
+            startX = startOffset * colWidth + (startMinutes / 1440) * colWidth;
+            if (endMinutes !== null) {
+              if (endOffset === startOffset && endMinutes <= startMinutes) endOffset += 1;
+              endX = endOffset * colWidth + (endMinutes / 1440) * colWidth;
+            } else if (item.endDate && endOffset > startOffset) {
+              endX = (endOffset + 1) * colWidth;
+            } else {
+              // 只有開始時間時，以一小時作為時間軸上的標記長度。
+              endX = startX + colWidth / 24;
+            }
+          }
+          if (endX <= startX) endX = startX + colWidth / 24;
+          return { item, startX, endX, startDate };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.startX - b.startX || a.endX - b.endX || String(a.item.id).localeCompare(String(b.item.id)));
 
       if (monthItems.length === 0) {
         const emptyHint = document.createElement('div');
         emptyHint.style.cssText = 'color:gray; font-size:0.85rem; padding:20px 0; text-align:center; width:100%;';
         emptyHint.innerText = '本月尚無行程';
         ganttBody.appendChild(emptyHint);
-      } else {
-        const rowMap = {};
-        let nextRowIndex = 0;
-
-        monthItems.forEach(item => {
-          rowMap[item.id] = nextRowIndex;
-          nextRowIndex++;
-        });
-
-        monthItems.forEach(item => {
-          const startD = item.date;
-          const endD = item.endDate || startD;
-
-          const startDayNum = parseInt(startD.substring(2, 4), 10);
-          const endDayNum = parseInt(endD.substring(2, 4), 10);
-
-          if (isNaN(startDayNum)) return;
-
-          const spanDays = Math.max(1, (endDayNum - startDayNum) + 1);
-          const leftPos = (startDayNum - 1) * colWidth + 4;
-          const barWidth = (spanDays * colWidth) - 8;
-
-          const rowIndex = rowMap[item.id];
-          const topOffset = 10 + (rowIndex * 28);
-
-          const bar = document.createElement('div');
-          bar.className = `gantt-bar-item ${item.completed ? 'completed' : ''}`;
-          bar.style.left = `${leftPos}px`;
-          bar.style.width = `${barWidth}px`;
-          bar.style.top = `${topOffset}px`;
-          
-          const em = item.emoji || userDefaultEmoji;
-          let timeDisp = '';
-          if (item.time && item.endTime) timeDisp = `[${item.time}~${item.endTime}] `;
-          else if (item.time) timeDisp = `[${item.time}] `;
-
-          bar.innerHTML = `<span>${em} ${timeDisp}${item.text}</span>`;
-
-          bar.onclick = (e) => {
-            e.stopPropagation();
-            showItemDetail(item, new Date(viewYear, viewMonth, startDayNum));
-          };
-
-          ganttBody.appendChild(bar);
-        });
-
-        ganttBody.style.height = `${10 + (nextRowIndex * 28) + 16}px`;
+        ganttBody.style.height = '200px';
+        return;
       }
+
+      // 依照實際日期＋時間分配軌道：時間不重疊的事項可共用同一排。
+      const lanes = [];
+      monthItems.forEach(entry => {
+        let laneIndex = lanes.findIndex(laneEnd => laneEnd <= entry.startX);
+        if (laneIndex < 0) laneIndex = lanes.length;
+        lanes[laneIndex] = entry.endX;
+        entry.laneIndex = laneIndex;
+      });
+
+      monthItems.forEach(({ item, startX, endX, startDate, laneIndex }) => {
+        const bar = document.createElement('div');
+        bar.className = `gantt-bar-item ${item.completed ? 'completed' : ''}`;
+        bar.style.left = `${startX + 2}px`;
+        bar.style.width = `${Math.max(5, endX - startX - 4)}px`;
+        bar.style.top = `${10 + laneIndex * 28}px`;
+
+        const em = item.emoji || userDefaultEmoji;
+        let timeDisp = '';
+        if (item.time && item.endTime) timeDisp = `[${item.time}~${item.endTime}] `;
+        else if (item.time) timeDisp = `[${item.time}] `;
+        bar.innerHTML = `<span>${em} ${timeDisp}${item.text}</span>`;
+
+        bar.onclick = e => {
+          e.stopPropagation();
+          showItemDetail(item, startDate);
+        };
+        ganttBody.appendChild(bar);
+      });
+
+      ganttBody.style.height = `${10 + lanes.length * 28 + 16}px`;
     }
 
     document.getElementById('timeline-prev-m').addEventListener('click', (e) => {
