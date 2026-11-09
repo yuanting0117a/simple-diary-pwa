@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "simple-diary-push",
+  "name": "simple-diary-sync",
   "main": "src/index.js",
   "compatibility_date": "2026-11-09",
   "triggers": {
