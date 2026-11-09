@@ -768,7 +768,7 @@
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
       <button type="button" class="btn icon-btn weather-header-btn" id="weather-header-btn" title="每日問候與天氣" aria-label="每日問候與天氣">☀️</button>
-      <div class="app-version">v56.12</div>
+      <div class="app-version">v56.13</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -927,6 +927,9 @@
       </div>
       <div style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">定位只用於查詢所在地天氣與行政區名稱，不會保存精確座標；若曾在瀏覽器封鎖定位，需到網站權限設定重新允許。</div>
 
+      <div style="font-size:0.85rem; font-weight:bold; margin:12px 0 6px;">🔔 通知測試：</div>
+      <button type="button" class="btn btn-primary" id="test-notification-btn" style="width:100%;">🔔 發送測試通知</button>
+      <div id="notification-test-status" role="status" aria-live="polite" style="font-size:0.72rem; color:var(--text-sub); margin-top:6px;">按下按鈕後，瀏覽器會詢問通知權限，允許後會立即發送一則測試通知。</div>
 
 
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">資料備份與還原：</div>
@@ -2961,6 +2964,46 @@
         });
       });
     }
+
+    // 通知測試：只在使用者按下按鈕時請求權限並發送，不建立後台或雲端服務。
+    document.getElementById('test-notification-btn').addEventListener('click', async () => {
+      const status = document.getElementById('notification-test-status');
+      const button = document.getElementById('test-notification-btn');
+      if (!('Notification' in window)) {
+        status.textContent = '這個瀏覽器不支援通知功能。';
+        return;
+      }
+      if (!('serviceWorker' in navigator)) {
+        status.textContent = '目前環境不支援背景通知，請使用支援 PWA 的瀏覽器。';
+        return;
+      }
+      button.disabled = true;
+      status.textContent = '正在確認通知權限…';
+      try {
+        let permission = Notification.permission;
+        if (permission === 'default') permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          status.textContent = permission === 'denied'
+            ? '通知權限已被封鎖，請到瀏覽器或裝置設定中允許此網站通知。'
+            : '尚未允許通知，因此沒有發送測試通知。';
+          return;
+        }
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification('簡潔記事｜通知測試', {
+          body: '通知功能正常！這是一則測試通知。',
+          icon: './icons/icon.svg',
+          badge: './icons/icon.svg',
+          tag: 'simple-diary-notification-test',
+          data: { url: './' }
+        });
+        status.textContent = '已送出測試通知；請查看裝置的通知中心。';
+      } catch (error) {
+        console.error('測試通知發送失敗：', error);
+        status.textContent = '通知發送失敗，請確認網站已安裝或瀏覽器支援通知。';
+      } finally {
+        button.disabled = false;
+      }
+    });
 
     render();
 
