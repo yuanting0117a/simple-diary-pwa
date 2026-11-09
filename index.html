@@ -768,7 +768,7 @@
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
       <button type="button" class="btn icon-btn weather-header-btn" id="weather-header-btn" title="每日問候與天氣" aria-label="每日問候與天氣">☀️</button>
-      <div class="app-version">v56.18</div>
+      <div class="app-version">v56.19</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -931,6 +931,9 @@
         <input type="file" id="import-backup-file" accept="application/json,.json" style="display:none;">
       </div>
       <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">支援 JSON 備份轉移；匯入時可選擇合併或取代，建議優先使用合併。</div>
+      <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">AI 行程匯出：</div>
+      <button type="button" class="btn btn-primary" id="export-ai-schedule-btn" style="width:100%; margin-bottom:8px;">🤖 匯出全部行程給 AI</button>
+      <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">匯出 Markdown，包含所有行程、類型、時間、完成狀態與每週重複規則。</div>
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">月曆匯出：</div>
       <button type="button" class="btn btn-primary" id="open-calendar-export" style="width:100%; margin-bottom:8px;">🖼️ 匯出月曆照片</button>
 
@@ -2883,6 +2886,71 @@
       const link = document.createElement('a');
       link.href = url;
       link.download = '簡潔記事備份-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    // AI 行程匯出：保留所有原始事項與類型，不展開重複項目，避免重複資料失真。
+    document.getElementById('export-ai-schedule-btn').addEventListener('click', () => {
+      const cleanText = value => String(value == null ? '' : value).replace(/\\r?\\n/g, ' ').trim();
+      const formatDate = value => /^\\d{4}$/.test(value || '')
+        ? value.slice(0, 2) + '/' + value.slice(2, 4)
+        : '未設定';
+      const formatTime = value => /^\\d{4}$/.test(value || '')
+        ? value.slice(0, 2) + ':' + value.slice(2, 4)
+        : '未設定';
+      const formatRepeat = repeat => {
+        if (!repeat) return '不重複';
+        if (repeat.type === 'count') return '每週重複，共 ' + (Number(repeat.count) || 4) + ' 次（含首次）';
+        if (repeat.type === 'date') return '每週重複至 ' + formatDate(repeat.untilDate);
+        return '每週重複（預設未來 1 個月）';
+      };
+      const sortedItems = db.slice().sort((a, b) => {
+        const ad = a.date || '9999';
+        const bd = b.date || '9999';
+        return ad.localeCompare(bd) || (a.time || '9999').localeCompare(b.time || '9999');
+      });
+      const lines = [
+        '# 簡潔記事｜全部行程',
+        '',
+        '- 匯出時間：' + new Date().toLocaleString('zh-TW'),
+        '- 行程筆數：' + sortedItems.length,
+        '- 日期格式：MM/DD；原始資料沒有儲存年份，因此不推測年份。',
+        '- 類型說明：「每天各自獨立」代表所選日期各自完成；「多天一次（區間）」代表區間內完成一次即可。',
+        '- 重複事項保留原始規則，不把每次重複展開成多筆。',
+        '',
+        '## 全部行程',
+        ''
+      ];
+      if (!sortedItems.length) lines.push('目前沒有行程。');
+      sortedItems.forEach((item, index) => {
+        const taskName = cleanText(item.text) || '未命名事項';
+        const taskType = item.taskType === 'pick-one' ? '多天一次（區間）' : '每天各自獨立';
+        const dateText = item.date
+          ? formatDate(item.date) + (item.endDate && item.endDate !== item.date ? '～' + formatDate(item.endDate) : '')
+          : '未排定日期（待辦）';
+        const timeText = item.time || item.endTime
+          ? formatTime(item.time) + '～' + formatTime(item.endTime)
+          : '未設定時間';
+        lines.push(
+          '### ' + (index + 1) + '. ' + (item.emoji || '') + taskName,
+          '- 類型：' + taskType,
+          '- 日期：' + dateText,
+          '- 時間：' + timeText,
+          '- 狀態：' + (item.completed ? '已完成' : '未完成'),
+          '- 重複：' + formatRepeat(item.repeat),
+          ''
+        );
+      });
+      lines.push('## 給 AI 的理解提醒', '', '請依照每筆行程的類型與日期區間理解安排；不要自行補上未儲存的年份或未設定的時間。已完成事項仍保留在清單中，分析未來安排時請優先區分完成狀態。');
+      const markdown = lines.join('\\n');
+      const blob = new Blob(['\\uFEFF', markdown], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '簡潔記事-全部行程給AI-' + new Date().toISOString().slice(0, 10) + '.md';
       document.body.appendChild(link);
       link.click();
       link.remove();
