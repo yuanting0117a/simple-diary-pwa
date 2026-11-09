@@ -75,10 +75,15 @@ function validSubscription(subscription) {
     typeof subscription.keys?.auth === "string";
 }
 
+async function hashToken(token) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return base64url(new Uint8Array(digest));
+}
+
 async function loadDevice(env, deviceId, token) {
   if (!validDeviceId(deviceId) || typeof token !== "string" || token.length < 32) return null;
   const record = await env.REMINDERS.get(DEVICE_PREFIX + deviceId, "json");
-  if (!record || record.token !== token) return null;
+  if (!record || record.tokenHash !== await hashToken(token)) return null;
   return record;
 }
 
@@ -123,8 +128,9 @@ async function handleRequest(request, env) {
     }
     const key = DEVICE_PREFIX + deviceId;
     const existing = await env.REMINDERS.get(key, "json");
-    if (existing && existing.token !== deviceToken) return json({ error: "device_auth_failed" }, 401, origin);
-    const record = existing || { token: deviceToken, sent: [], reminders: [] };
+    const tokenHash = await hashToken(deviceToken);
+    if (existing && existing.tokenHash !== tokenHash) return json({ error: "device_auth_failed" }, 401, origin);
+    const record = existing || { tokenHash, sent: [], reminders: [] };
     record.subscription = subscription;
     await env.REMINDERS.put(key, JSON.stringify(record));
     return json({ ok: true }, 200, origin);
