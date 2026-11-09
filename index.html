@@ -763,7 +763,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v56.2</div>
+      <div class="app-version">v56.3</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2376,7 +2376,26 @@
         }
       });
 
-      // 與主時間軸相同：同一批次固定同一排，不同批次依整組時間範圍分配列位。
+      // 先量出每筆完整標籤寬度，將文字佔用空間一併納入排位，避免與下一筆事項重疊。
+      const measureCanvas = document.createElement('canvas');
+      const measureContext = measureCanvas.getContext('2d');
+      if (!measureContext) {
+        alert('目前無法計算事項文字寬度，請稍後再試。');
+        return;
+      }
+      measureContext.font = '12px sans-serif';
+      entries.forEach(entry => {
+        const item = entry.item;
+        const em = item.emoji || userDefaultEmoji || '';
+        const timeLabel = item.time
+          ? '[' + item.time + (item.endTime ? '～' + item.endTime : '') + '] '
+          : '';
+        entry.label = timeLabel + (em ? em + ' ' : '') + (item.text || '');
+        entry.labelWidth = measureContext.measureText(entry.label).width;
+        entry.layoutEnd = entry.start + ((entry.labelWidth + 18) / 96) * dayMs;
+      });
+
+      // 與主時間軸相同：同一批次固定同一排；排位範圍同時考慮時間區間和完整文字寬度。
       entries.sort((a, b) => a.start - b.start || a.end - b.end ||
         String(a.item.id).localeCompare(String(b.item.id)));
       const timelineGroups = new Map();
@@ -2386,7 +2405,7 @@
         const group = timelineGroups.get(groupKey);
         group.entries.push(entry);
         group.start = Math.min(group.start, entry.start);
-        group.end = Math.max(group.end, entry.end);
+        group.end = Math.max(group.end, entry.end, entry.layoutEnd);
       });
       const orderedGroups = [...timelineGroups.values()].sort((a, b) => a.start - b.start);
       const timelineLanes = [];
@@ -2397,14 +2416,13 @@
         group.entries.forEach(entry => { entry.laneIndex = laneIndex; });
       });
 
-      // 匯出預覽沿用主時間軸的分組排位；下方另列完整名稱，長條文字則自動省略。
+      // 圖片寬度會依完整文字需要自動延伸；不再另列重複清單。
       const pad = 24, colW = 96, headH = 72, rowH = 32;
-      const listTop = pad + headH + Math.max(1, timelineLanes.length) * rowH + 18;
-      const listRowH = 24;
-      const listHeight = entries.length ? 28 + entries.length * listRowH : 0;
+      const maxLabelRight = entries.reduce((max, entry) =>
+        Math.max(max, ((entry.start - rangeStart) / dayMs) * colW + 9 + entry.labelWidth), count * colW);
       const canvas = document.createElement('canvas');
-      canvas.width = Math.max(pad * 2 + count * colW, 600);
-      canvas.height = listTop + listHeight + pad;
+      canvas.width = Math.max(pad * 2 + count * colW, Math.ceil(pad * 2 + maxLabelRight + 8), 600);
+      canvas.height = pad * 2 + headH + Math.max(1, timelineLanes.length) * rowH;
       if (canvas.width > 30000 || canvas.height > 30000) {
         alert('圖片尺寸過大，請縮短日期範圍或減少事項數量。');
         return;
@@ -2499,52 +2517,15 @@
         c.fill();
         c.stroke();
 
-        const em = item.emoji || userDefaultEmoji || '';
-        const timeLabel = item.time
-          ? '[' + item.time + (item.endTime ? '～' + item.endTime : '') + '] '
-          : '';
-        const label = timeLabel + (em ? em + ' ' : '') + (item.text || '');
-        c.save();
-        c.beginPath();
-        c.rect(x + 7, y, Math.max(0, w - 12), 22);
-        c.clip();
         c.font = '12px sans-serif';
         c.textAlign = 'left';
         c.textBaseline = 'middle';
         c.fillStyle = item.completed ? '#8e8e93' : '#3478d4';
         if (item.completed) c.globalAlpha = 0.65;
-        let shortLabel = label;
-        const maxTextWidth = Math.max(0, w - 16);
-        while (shortLabel && c.measureText(shortLabel + '…').width > maxTextWidth) {
-          shortLabel = shortLabel.slice(0, -1);
-        }
-        if (shortLabel !== label) shortLabel += '…';
-        if (maxTextWidth > 0) c.fillText(shortLabel, x + 7, y + 11);
-        c.restore();
+        // 文字完整顯示在時間長條右側；排位已預留文字寬度，不會壓到下一筆。
+        c.fillText(entry.label, x + 7, y + 11);
+        c.globalAlpha = 1;
       });
-
-      // 圖表下方列出完整事項名稱，避免長文字因長條寬度不足而遺失。
-      if (entries.length) {
-        const listX = pad + 12;
-        let listY = listTop;
-        c.fillStyle = '#202027';
-        c.font = 'bold 15px sans-serif';
-        c.textAlign = 'left';
-        c.fillText('事項完整名稱', listX, listY);
-        listY += 24;
-        entries.forEach(entry => {
-          const item = entry.item;
-          const em = item.emoji || userDefaultEmoji || '';
-          const timeLabel = item.time
-            ? item.time + (item.endTime ? '～' + item.endTime : '')
-            : '未設定時間';
-          const fullLabel = timeLabel + '　' + (em ? em + ' ' : '') + (item.text || '未命名事項');
-          c.font = '12px sans-serif';
-          c.fillStyle = item.completed ? '#8e8e93' : '#454550';
-          c.fillText(fullLabel, listX, listY);
-          listY += listRowH;
-        });
-      }
 
       if (!entries.length) {
         c.fillStyle = '#777';
