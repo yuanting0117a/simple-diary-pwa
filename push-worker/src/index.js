@@ -166,14 +166,19 @@ async function handleRequest(request, env) {
     const { deviceId } = body || {};
     const record = await loadDevice(env, deviceId, getBearer(request));
     if (!record || !validSubscription(record.subscription)) return json({ error: "subscription_not_found" }, 404, origin);
-    const keys = await getVapidKeys(env);
-    const result = await sendPush(record.subscription, keys, "簡潔記事｜推播測試", "雲端推播已連線。即使網站沒有開啟，也能收到提醒。");
-    if (result.status === 404 || result.status === 410) {
-      record.subscription = null;
-      await env.REMINDERS.put(DEVICE_PREFIX + deviceId, JSON.stringify(record));
-    }
-    if (!result.ok) return json({ error: "push_service_rejected", status: result.status }, 502, origin);
-    return json({ ok: true }, 200, origin);
+    const reminderAt = Date.now() + 60 * 1000;
+    const testId = "test-" + crypto.randomUUID();
+    if (!Array.isArray(record.reminders)) record.reminders = [];
+    record.reminders = record.reminders.filter(item => !String(item?.id || "").startsWith("test-"));
+    record.reminders.push({
+      id: testId,
+      title: "簡潔記事｜推播測試",
+      body: "雲端排程正常運作！這是約一分鐘前設定的測試通知。",
+      reminderAt,
+      startsAt: reminderAt
+    });
+    await env.REMINDERS.put(DEVICE_PREFIX + deviceId, JSON.stringify(record));
+    return json({ ok: true, scheduledAt: reminderAt }, 200, origin);
   }
 
   if (url.pathname === "/api/unregister") {
