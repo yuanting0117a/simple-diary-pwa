@@ -763,7 +763,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v56.3</div>
+      <div class="app-version">v56.4</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2061,7 +2061,37 @@
         return;
       }
 
-      // 同一次新增的事項固定在同一排；不同批次才依時間區間分配列位。
+      // 先量完整標籤寬度，將文字實際佔用範圍納入排位。
+      const timelineMeasureCanvas = document.createElement('canvas');
+      const timelineMeasureContext = timelineMeasureCanvas.getContext('2d');
+      if (!timelineMeasureContext) {
+        ganttBody.style.height = '200px';
+        return;
+      }
+      timelineMeasureContext.font = '12px sans-serif';
+      monthItems.forEach(entry => {
+        const item = entry.item;
+        const em = item.emoji || userDefaultEmoji || '';
+        const dateLabel = value => value && /^\\d{4}$/.test(value)
+          ? value.slice(0, 2) + '/' + value.slice(2, 4)
+          : '';
+        const startLabel = dateLabel(item.date);
+        const endLabel = dateLabel(item.endDate || item.date);
+        let timeDisp = '';
+        if (item.time && item.endTime) {
+          timeDisp = `[${startLabel} ${item.time}～${endLabel} ${item.endTime}]`;
+        } else if (item.time) {
+          timeDisp = `[${startLabel} ${item.time}]`;
+        } else if (startLabel) {
+          timeDisp = `[${startLabel}${endLabel && endLabel !== startLabel ? '～' + endLabel : ''}]`;
+        }
+        entry.timeLabel = timeDisp;
+        entry.fullLabel = [em, timeDisp, item.text || ''].filter(Boolean).join('　｜　');
+        entry.labelWidth = timelineMeasureContext.measureText(entry.fullLabel).width + 18;
+        entry.layoutEndX = Math.max(entry.endX, entry.startX + entry.labelWidth);
+      });
+
+      // 同一次新增的事項固定在同一排；不同批次依時間區間＋完整文字寬度分配列位。
       const timelineGroups = new Map();
       monthItems.forEach(entry => {
         const groupKey = entry.item.groupId || `item_${entry.item.id}`;
@@ -2069,7 +2099,7 @@
         const group = timelineGroups.get(groupKey);
         group.entries.push(entry);
         group.start = Math.min(group.start, entry.startX);
-        group.end = Math.max(group.end, entry.endX);
+        group.end = Math.max(group.end, entry.layoutEndX);
       });
       const orderedTimelineGroups = [...timelineGroups.values()].sort((a, b) => a.start - b.start);
       const timelineLanes = [];
@@ -2080,28 +2110,19 @@
         group.entries.forEach(entry => { entry.laneIndex = laneIndex; });
       });
 
-      monthItems.forEach(({ item, startX, endX, startDate, laneIndex }) => {
+      monthItems.forEach(({ item, startX, endX, startDate, laneIndex, labelWidth, fullLabel }) => {
         const bar = document.createElement('div');
         bar.className = `gantt-bar-item ${item.completed ? 'completed' : ''}`;
         bar.style.left = `${startX + 2}px`;
-        bar.style.width = `${Math.max(5, endX - startX - 4)}px`;
+        bar.style.width = `${Math.max(5, endX - startX - 4, labelWidth - 4)}px`;
         bar.style.top = `${10 + laneIndex * 28}px`;
-
-        const em = item.emoji || userDefaultEmoji;
-        const dateLabel = value => value && /^\\d{4}$/.test(value)
-          ? value.slice(0, 2) + '/' + value.slice(2, 4)
-          : '';
-        const startLabel = dateLabel(item.date);
-        const endLabel = dateLabel(item.endDate || item.date);
-        let timeDisp = '';
-        if (item.time && item.endTime) {
-          timeDisp = `[${startLabel} ${item.time}～${endLabel} ${item.endTime}] `;
-        } else if (item.time) {
-          timeDisp = `[${startLabel} ${item.time}] `;
-        } else if (startLabel) {
-          timeDisp = `[${startLabel}${endLabel && endLabel !== startLabel ? '～' + endLabel : ''}] `;
-        }
-        bar.innerHTML = `<span>${em} ${timeDisp}${item.text}</span>`;
+        bar.style.overflow = 'visible';
+        bar.style.textOverflow = 'clip';
+        bar.innerHTML = '';
+        const label = document.createElement('span');
+        label.textContent = fullLabel;
+        label.style.cssText = 'display:block;white-space:nowrap;overflow:visible;text-overflow:clip;position:relative;z-index:6;';
+        bar.appendChild(label);
 
         bar.onclick = e => {
           e.stopPropagation();
@@ -2390,7 +2411,7 @@
         const timeLabel = item.time
           ? '[' + item.time + (item.endTime ? '～' + item.endTime : '') + '] '
           : '';
-        entry.label = timeLabel + (em ? em + ' ' : '') + (item.text || '');
+        entry.label = [timeLabel.trim(), em, item.text || ''].filter(Boolean).join('　｜　');
         entry.labelWidth = measureContext.measureText(entry.label).width;
         entry.layoutEnd = entry.start + ((entry.labelWidth + 18) / 96) * dayMs;
       });
@@ -2501,7 +2522,7 @@
         }
       }
 
-      // 同批次事項使用同一列；長條內保留時間、不顯示日期，過長文字自動省略。
+      // 同批次事項使用同一列；時間與事項以分隔符清楚區分，完整顯示。
       entries.forEach(entry => {
         const y = pad + headH + entry.laneIndex * rowH + 2;
         const left = (entry.start - rangeStart) / dayMs * colW;
