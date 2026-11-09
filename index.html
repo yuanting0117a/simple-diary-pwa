@@ -832,7 +832,35 @@
     .guide-step { display:flex; gap:9px; align-items:flex-start; margin:8px 0; }
     .guide-num { flex:0 0 23px; height:23px; border-radius:50%; display:grid; place-items:center; background:#e8f0ff; color:#2864bd; font-weight:800; font-size:.75rem; }
     .guide-note { background:#f5f8ff; border-radius:9px; padding:9px 10px; font-size:.78rem; line-height:1.6; color:#52627a; margin-top:8px; }
-    @media(max-width:420px) { .guide-modal{padding:14px}.guide-section{padding:11px}.guide-overlay{padding:8px 6px} }
+    .guide-toc { padding:11px; border:1px solid #e5eaf2; border-radius:12px; background:#f8faff; margin:10px 0 16px; }
+    .guide-toc>b { display:block; font-size:.8rem; margin-bottom:7px; }
+    .guide-toc-links { display:flex; flex-wrap:wrap; gap:6px; }
+    .guide-toc a { color:#2864bd; text-decoration:none; font-size:.72rem; padding:5px 8px; border-radius:7px; background:#eaf1ff; }
+    .guide-section h4 { font-size:.85rem; margin:13px 0 5px; color:#354052; }
+    .guide-section ol,.guide-section ul { padding-left:21px; margin:7px 0; }
+    .guide-section li { margin:4px 0; }
+    .guide-form-row { display:flex; align-items:center; gap:7px; margin:6px 0; padding:8px; background:#fff; border:1px solid #e3e8f0; border-radius:8px; font-size:.72rem; }
+    .guide-form-fill { flex:1; min-width:0; color:#718096; background:#fff; border:1px solid #e3e8f0; border-radius:7px; padding:7px; }
+    .guide-calendar-demo { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; text-align:center; font-size:.68rem; }
+    .guide-calendar-demo span { min-height:27px; display:grid; place-items:center; padding:3px 1px; background:#fff; border:1px solid #edf0f4; border-radius:6px; }
+    .guide-calendar-demo span:nth-child(-n+7) { min-height:20px; background:transparent; border:0; color:#7b8492; font-weight:700; }
+    .guide-calendar-demo .picked { background:#e8f1ff; border-color:#b9d2fa; color:#245da8; font-weight:800; }
+    .guide-repeat-option { padding:8px; background:#fff; border:1px solid #e5eaf0; border-radius:7px; margin:5px 0; font-size:.76rem; }
+    .guide-timeline { padding:8px; background:#fff; border-radius:8px; border:1px solid #e5eaf0; }
+    .guide-timeline-hours { display:flex; justify-content:space-between; color:#7b8492; font-size:.65rem; padding-bottom:7px; border-bottom:1px solid #dce3ed; }
+    .guide-timeline-bar { margin:8px 0 5px 12%; padding:7px; border-radius:6px; background:#e7efff; color:#285eaa; font-size:.7rem; font-weight:700; }
+    .guide-timeline-bar.second { margin-left:48%; background:#eaf6ef; color:#36724c; }
+    .guide-timeline-days { display:flex; justify-content:space-between; gap:5px; padding-top:7px; border-top:1px solid #dce3ed; color:#788394; font-size:.62rem; }
+    .guide-important-demo { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+    .guide-important-tile { aspect-ratio:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border:1px solid #e3eaf3; border-radius:10px; background:#fff; }
+    .guide-important-tile small { color:#788394; font-size:.67rem; }
+    .guide-important-tile b { color:#2878df; font-size:1.5rem; line-height:1; }
+    .guide-important-tile span { color:#8993a1; font-size:.62rem; text-align:center; }
+    .guide-faq-item { padding:9px 0; border-bottom:1px solid #edf0f4; }
+    .guide-faq-item>b { font-size:.82rem; color:#354052; }
+    .guide-faq-item p { margin:4px 0 0; }
+    .guide-section p,.guide-section li { overflow-wrap:anywhere; }
+    @media(max-width:420px) { .guide-modal{padding:14px}.guide-section{padding:11px}.guide-overlay{padding:8px 6px}.guide-toc-links{gap:5px}.guide-toc a{font-size:.68rem;padding:5px 6px} }
 
   </style>
 </head>
@@ -851,7 +879,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.29</div>
+      <div class="app-version">v56.30</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -928,50 +956,254 @@
 
   <div class="modal-overlay guide-overlay" id="guide-overlay">
     <div class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-main-title">
-      <div class="guide-head"><div class="guide-title" id="guide-main-title">📖 簡潔記事使用說明</div><button type="button" class="btn icon-btn" id="guide-close" aria-label="關閉說明">×</button></div>
-      <div class="guide-intro">用幾分鐘認識主要操作。下面的示意畫面是操作位置與流程的圖解，不會更動你的實際行程。</div>
+      <div class="guide-head">
+        <div class="guide-title" id="guide-main-title">📖 簡潔記事｜完整使用手冊</div>
+        <button type="button" class="btn icon-btn" id="guide-close" aria-label="關閉說明">×</button>
+      </div>
+      <div class="guide-intro">這份手冊依照目前版本的實際功能整理。可以直接往下閱讀，也可以先看想了解的章節。圖解是操作示意，不會更動你的記事資料。</div>
 
-      <section class="guide-section">
+      <nav class="guide-toc">
+        <b>快速前往</b>
+        <div class="guide-toc-links">
+          <a href="#guide-home">主畫面</a><a href="#guide-create">新增事項</a><a href="#guide-modes">日期與模式</a>
+          <a href="#guide-repeat">每週重複</a><a href="#guide-manage">完成與編輯</a><a href="#guide-views">三種視圖</a>
+          <a href="#guide-tools">功能選單</a><a href="#guide-weather">天氣與通知</a><a href="#guide-backup">備份與匯出</a><a href="#guide-faq">常見問題</a>
+        </div>
+      </nav>
+
+      <section class="guide-section" id="guide-home">
         <h3>1. 認識主畫面</h3>
         <div class="guide-screen">
-          <div class="guide-screen-top"><b>簡潔記事</b><span class="guide-chip">功能　⚙</span></div>
+          <div class="guide-screen-top"><b>簡潔記事</b><span class="guide-chip">功能選單</span></div>
           <div class="guide-date-row"><span>一<br>09</span><span>二<br>10</span><span class="active">三<br>11</span><span>四<br>12</span><span>五<br>13</span><span>六<br>14</span><span>日<br>15</span></div>
           <div class="guide-task"><small>08:00</small><i class="guide-line"></i><b>📚 準備上課</b></div>
           <div class="guide-task"><small>12:30</small><i class="guide-line"></i><b>🍱 午餐</b></div>
           <div class="guide-task"><small>18:00</small><i class="guide-line"></i><b>✏️ 複習功課</b></div>
           <div class="guide-actions"><span>清理完成</span><span>編輯</span><span>設定</span><span>＋ 新增</span></div>
         </div>
-        <p>日期區用來切換日期；下方時間軸依時間排列事項。右上角可清理已完成事項、進入編輯或設定，右下角「＋」可新增。</p>
+        <ul>
+          <li><b>日期區：</b>切換要查看的日期。</li>
+          <li><b>條列視圖：</b>按日期整理事項；沒有安排日期的項目會放在「待辦事項」區。</li>
+          <li><b>右上角「功能」：</b>開啟天氣、倒數計時器、重要日子與使用說明。</li>
+          <li><b>清理完成：</b>整理已完成的事項，可刪除或將勾選項目退回未完成。</li>
+          <li><b>編輯按鈕：</b>進入編輯模式；完成後再按一次，才會儲存本次編輯。</li>
+          <li><b>右下角「＋」：</b>新增事項。月曆視圖也能使用；時間軸視圖會隱藏此按鈕。</li>
+          <li><b>設定：</b>管理 Emoji、定位、備份與匯出。</li>
+        </ul>
+        <div class="guide-note">資料主要保存在目前瀏覽器的本機儲存空間，不會因為關閉頁面就自動同步到其他裝置。</div>
       </section>
 
-      <section class="guide-section">
-        <h3>2. 新增與管理事項</h3>
-        <div class="guide-step"><span class="guide-num">1</span><p>按「＋」開啟新增視窗，輸入事項名稱、選擇 Emoji、日期與時間，再儲存。</p></div>
-        <div class="guide-step"><span class="guide-num">2</span><p>需要修改時，按右上角編輯按鈕，再選擇要調整的事項。</p></div>
-        <div class="guide-step"><span class="guide-num">3</span><p>點選尚未完成的事項，可確認是否標記完成；完成後會以刪除線標示。</p></div>
-        <div class="guide-note">多天選一適合「這幾天找一天完成」的事情：設定開始與截止日期即可。它只需完成一次，完成標記會顯示在截止日。</div>
-      </section>
-
-      <section class="guide-section">
-        <h3>3. 功能選單</h3>
+      <section class="guide-section" id="guide-create">
+        <h3>2. 新增一件事項：每個欄位怎麼填？</h3>
         <div class="guide-screen">
-          <div class="guide-screen-top"><b>功能</b><span class="guide-chip">點擊開啟</span></div>
-          <div class="guide-task">☀️　<b>天氣</b><small>每日問候與天氣資訊</small></div>
-          <div class="guide-task">⏳　<b>倒數計時器</b><small>設定時間、開始或暫停</small></div>
-          <div class="guide-task">📅　<b>重要日子</b><small>生日倒數、紀念日紀錄</small></div>
-          <div class="guide-task">📌　<b>固定安排</b><small>即將推出</small></div>
+          <div class="guide-screen-top"><b>新增事項</b><span class="guide-chip">欄位示意</span></div>
+          <div class="guide-form-row"><span>📌</span><span class="guide-form-fill">選擇日期：點選月曆</span></div>
+          <div class="guide-form-row"><span class="guide-form-fill">開始 HHMM</span><span class="guide-form-fill">結束 HHMM</span></div>
+          <div class="guide-form-row guide-form-fill">點選快速帶入 Emoji</div>
+          <div class="guide-form-row guide-form-fill">輸入事項內容……</div>
+          <div class="guide-form-row"><span class="guide-chip">每天各自獨立</span><span class="guide-chip">多天一次（區間）</span></div>
+          <div class="guide-form-row guide-form-fill">設定每週重複</div>
+          <div class="guide-actions"><span>確認</span><span>返回</span></div>
         </div>
-        <p><b>天氣：</b>依定位顯示所在地天氣、溫度與相關資訊；定位可在設定中開啟或關閉。</p>
-        <p><b>倒數計時器：</b>可設定小時與分鐘。計時中關閉視窗會縮成可拖曳的懸浮窗；可暫停、繼續、展開或按 × 結束這次計時。</p>
-        <p><b>重要日子：</b>可新增倒數或紀錄已經過的天數；生日等日期可勾選每年重複。</p>
-        <p><b>固定安排：</b>目前尚未開放。</p>
+        <ol>
+          <li><b>Emoji：</b>輸入或選擇代表事項的圖示。預設會帶入設定中的預設 Emoji，也能從下方快速選擇。</li>
+          <li><b>日期：</b>點「點選月曆選擇日期」開啟日期選擇器。可選一天，也可點選多個日期；選完按「確認選取」。</li>
+          <li><b>開始時間：</b>使用 24 小時制四位數，例如 0900 代表上午 9 點、1830 代表下午 6 點半。輸入 900 也會自動補成 0900。</li>
+          <li><b>結束時間：</b>可填可不填。若是有時長的活動，可同時填開始與結束時間。</li>
+          <li><b>事項內容：</b>輸入要做的事情。這是必填欄位。</li>
+          <li><b>確認：</b>儲存事項；「返回」則關閉新增視窗，不儲存這次輸入。</li>
+        </ol>
+        <div class="guide-note">日期可以留白。沒有選日期時，儲存後會成為「未排定時間」的待辦事項；這類事項不會出現在月曆或時間軸。</div>
       </section>
 
-      <section class="guide-section">
-        <h3>4. 設定、備份與 AI 匯出</h3>
-        <p>設定可管理預設 Emoji、所在地與天氣定位，也能匯出 JSON 備份或還原資料。</p>
-        <p>「匯出全部行程給 AI」會整理行程、日期、時間、類型與完成狀態，產生方便交給 AI 閱讀的 Markdown 檔案。</p>
-        <div class="guide-note">建議定期匯出 JSON 備份。資料主要儲存在目前使用的瀏覽器中；更換裝置或瀏覽器前，請先備份並在新裝置還原。</div>
+      <section class="guide-section" id="guide-modes">
+        <h3>3. 日期選擇與兩種事項模式</h3>
+        <h4>日期選擇器</h4>
+        <div class="guide-screen">
+          <div class="guide-screen-top"><b>選擇日期</b><span class="guide-chip">可跨月份</span></div>
+          <div class="guide-calendar-demo">
+            <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+            <span>　</span><span>　</span><span>　</span><span>　</span><span>1</span><span>2</span><span>3</span>
+            <span>4</span><span class="picked">5</span><span>6</span><span>7</span><span class="picked">8</span><span>9</span><span>10</span>
+            <span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span>
+          </div>
+          <div class="guide-note">示意：點選 5 日與 8 日，確認後就會帶入兩個日期。</div>
+        </div>
+        <p>日期選擇器上方的左右箭頭可切換月份。點日期可選取，再點一次可取消；選好後一定要按「確認選取」才會帶回新增視窗。</p>
+        <h4>每天各自獨立（預設）</h4>
+        <p>適合多個日期都要各自完成的事情。例如選星期一、星期三、星期五的讀書計畫，系統會建立三筆獨立事項。完成其中一天，不會自動完成其他天。</p>
+        <div class="guide-screen">
+          <div class="guide-task"><small>週一</small><i class="guide-line"></i><b>📖 複習英文</b><span class="guide-chip">獨立 ①</span></div>
+          <div class="guide-task"><small>週三</small><i class="guide-line"></i><b>📖 複習英文</b><span class="guide-chip">獨立 ②</span></div>
+          <div class="guide-task"><small>週五</small><i class="guide-line"></i><b>📖 複習英文</b><span class="guide-chip">獨立 ③</span></div>
+        </div>
+        <h4>多天一次（區間）</h4>
+        <p>適合「這段期間找一天完成即可」的事情。例如 11/10 到 11/15 之間找一天交作業。這是一件跨日期的事項，不是每天都要做一次。</p>
+        <div class="guide-screen">
+          <div class="guide-task"><small>11/10</small><i class="guide-line"></i><b>📝 完成報告</b></div>
+          <div class="guide-task"><small>11/11–14</small><i class="guide-line"></i><b>區間內擇一天完成</b></div>
+          <div class="guide-task"><small>11/15</small><i class="guide-line"></i><b>截止日／完成標記顯示處</b></div>
+        </div>
+        <div class="guide-note"><b>重要差異：</b>多天一次只要完成一次即可。未完成時，區間內的日期會看得到這件事；完成後只在截止日顯示完成刪除線。月曆也以截止日呈現這類事項。</div>
+      </section>
+
+      <section class="guide-section" id="guide-repeat">
+        <h3>4. 每週重複事項</h3>
+        <p>如果同一件事每週都會發生，不必每週重新新增。先選好日期與模式，再按「設定每週重複」展開設定。</p>
+        <div class="guide-screen">
+          <div class="guide-screen-top"><b>重複結束條件</b></div>
+          <div class="guide-repeat-option">◉ 預設未來 1 個月內重複</div>
+          <div class="guide-repeat-option">○ 指定重複 4 次後停止</div>
+          <div class="guide-repeat-option">○ 指定截止日期：MMDD</div>
+        </div>
+        <ul>
+          <li><b>預設未來 1 個月：</b>依照起始日期，每隔 7 天產生下一次。</li>
+          <li><b>指定重複次數：</b>輸入總次數，次數包含第一次。例如 4 次代表第一次加上後續三次。</li>
+          <li><b>指定截止日期：</b>每週延續，直到超過設定的截止日期為止。日期格式使用 MMDD，例如 1231。</li>
+        </ul>
+        <p>重複規則會套用到選定的事項模式。若是「每天各自獨立」，每個選取日期都會各自依規則重複；若是「多天一次」，則整個日期區間每週平移一次。</p>
+        <div class="guide-note">目前是每週重複，不是每天重複或自訂星期幾。日期資料以月／日保存，沒有記錄年份；跨年安排請特別確認日期。</div>
+      </section>
+
+      <section class="guide-section" id="guide-manage">
+        <h3>5. 完成、修改、刪除與清理</h3>
+        <h4>標記完成</h4>
+        <p>點選尚未完成的事項，系統會先詢問是否標記完成。選「完成」後會顯示刪除線；選「否」則不變。</p>
+        <p>「多天一次（區間）」的事項完成後，整個區間視為完成；若是同一批多日期建立的區間事項，完成狀態會一起更新。</p>
+        <h4>編輯模式</h4>
+        <ol>
+          <li>按右上角鉛筆圖示進入編輯模式。</li>
+          <li>在事項旁使用編輯或刪除操作，修改名稱、日期、時間、模式或重複設定。</li>
+          <li>修改完成後，按右下角變成「完成」的按鈕儲存。</li>
+          <li>若想放棄這次編輯，再按右上角返回圖示可復原進入編輯模式後的變更。</li>
+        </ol>
+        <h4>清理已完成</h4>
+        <ul>
+          <li><b>全部完成刪除：</b>刪除所有已完成事項。</li>
+          <li><b>勾選刪除：</b>先展開清單，勾選指定項目後刪除。</li>
+          <li><b>返回未完成：</b>把勾選的已完成事項恢復成未完成。</li>
+        </ul>
+        <div class="guide-note">清理刪除與一般刪除都會實際移除資料。重要資料建議先匯出 JSON 備份。</div>
+      </section>
+
+      <section class="guide-section" id="guide-views">
+        <h3>6. 條列、月曆、時間軸：三種視圖</h3>
+        <h4>條列視圖</h4>
+        <p>以日期分組顯示事項，適合日常查看與完成勾選。沒有日期的待辦事項會獨立放在上方區塊；逾期事項會集中整理。</p>
+        <h4>月曆視圖</h4>
+        <div class="guide-screen">
+          <div class="guide-screen-top"><b>月曆視圖</b><span class="guide-chip">月份切換</span></div>
+          <div class="guide-calendar-demo">
+            <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+            <span>　</span><span>　</span><span>　</span><span>　</span><span>1</span><span>2</span><span>3</span>
+            <span>4</span><span class="picked">5<br>📚</span><span>6</span><span>7</span><span class="picked">8<br>📝</span><span>9</span><span>10</span>
+            <span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span>
+          </div>
+        </div>
+        <ul>
+          <li>用月份左右箭頭切換月份。</li>
+          <li>日期格內會顯示該日事項；點選事項可查看詳細內容。</li>
+          <li>右側「轉 90°」可調整月曆方向，方便較寬的畫面查看。</li>
+          <li>月曆視圖可按右下角「＋」新增事項。</li>
+          <li>多天一次的區間事項只在截止日顯示；未排定日期的待辦不會出現在月曆。</li>
+        </ul>
+        <h4>時間軸</h4>
+        <div class="guide-screen">
+          <div class="guide-screen-top"><b>時間軸示意</b><span class="guide-chip">橫向時間表</span></div>
+          <div class="guide-timeline"><div class="guide-timeline-hours"><span>00</span><span>06</span><span>12</span><span>18</span></div><div class="guide-timeline-bar">📚 上課／讀書時段</div><div class="guide-timeline-bar second">🍱 午餐</div><div class="guide-timeline-days"><span>日期欄</span><span>每日分隔</span><span>週一藍線</span></div></div>
+        </div>
+        <ul>
+          <li>每個日期是一個橫向欄位，欄內依 24 小時安排事項；可左右滑動查看整個月份。</li>
+          <li>每日分隔線是淡灰色，週一使用藍色線條作為週分隔。</li>
+          <li>上方左右箭頭切換月份。時間軸主要用來檢視跨日與時段分布。</li>
+          <li>按「匯出時間軸圖片」可選擇日期範圍、預覽並下載 PNG。</li>
+        </ul>
+        <div class="guide-note">時間軸視圖不顯示右下角新增按鈕；要新增或修改事項，請切回條列或月曆視圖。</div>
+      </section>
+
+      <section class="guide-section" id="guide-tools">
+        <h3>7. 功能選單：天氣、計時器、重要日子</h3>
+        <div class="guide-screen">
+          <div class="guide-screen-top"><b>功能</b><span class="guide-chip">右上角開啟</span></div>
+          <div class="guide-task">☀️　<b>天氣</b><small>每日問候與天氣資訊</small></div>
+          <div class="guide-task">⏳　<b>倒數計時器</b><small>自訂時長、暫停與懸浮</small></div>
+          <div class="guide-task">📅　<b>重要日子</b><small>倒數日與經過天數</small></div>
+          <div class="guide-task">📖　<b>使用說明</b><small>本手冊</small></div>
+          <div class="guide-task">📌　<b>固定安排</b><small>尚未開放</small></div>
+        </div>
+        <h4>倒數計時器</h4>
+        <ol>
+          <li>在功能選單開啟「倒數計時器」。</li>
+          <li>拖曳小時與分鐘滑桿設定時間，畫面會同步顯示選取的時長。</li>
+          <li>按「開始」啟動；可按「暫停」，之後按「繼續」接著計時。</li>
+          <li>計時期間按視窗的「關閉」，計時會縮成小型懸浮窗，不會因此停止。</li>
+          <li>懸浮窗可拖曳位置；按「暫停／繼續」控制計時，按「展開」回到完整視窗，按右上角 × 結束這次計時。</li>
+        </ol>
+        <h4>重要日子</h4>
+        <div class="guide-screen guide-important-demo">
+          <div class="guide-important-tile"><small>生日</small><b>12</b><span>天後</span></div>
+          <div class="guide-important-tile"><small>開始紀錄</small><b>86</b><span>已經過天數</span></div>
+          <div class="guide-important-tile"><small>旅行</small><b>3</b><span>天後</span></div>
+        </div>
+        <ul>
+          <li>右上角「新增」可新增重要日子，填寫名稱、類型與日期。</li>
+          <li><b>倒數：</b>顯示距離目標日還有幾天；日期已過則顯示已過天數。</li>
+          <li><b>紀錄：</b>從指定日期開始計算已經過幾天；若開始日期還沒到，會顯示距離開始還有幾天。</li>
+          <li><b>每年重複：</b>適合生日等固定年度日期。閏年生日在非閏年會以 2 月 28 日計算。</li>
+          <li>點擊正方形卡片才會開啟日期、類型與重複設定等詳細資訊；刪除也在詳細畫面中。</li>
+        </ul>
+        <div class="guide-note">重要日子與一般行程是分開管理的，不會自動加入每日時間軸。固定安排目前尚未推出。</div>
+      </section>
+
+      <section class="guide-section" id="guide-weather">
+        <h3>8. 每日問候、天氣與通知</h3>
+        <h4>每日問候與天氣</h4>
+        <p>從功能選單按「天氣」即可開啟問候與天氣資訊。問候文字會依目前時段變化；允許定位後，天氣區會顯示所在地、目前溫度與天氣細節，例如高低溫、體感溫度、風速、濕度與降雨資訊（依可取得的資料顯示）。</p>
+        <p>第一次使用可在問候畫面選擇允許定位，也可以先略過。之後可到「設定」調整定位；選擇開啟或關閉後，必須按「確認並儲存」才會套用。</p>
+        <h4>事項通知</h4>
+        <ul>
+          <li>通知權限需由瀏覽器或裝置允許。</li>
+          <li>目前提醒條件是：事項尚未完成、有日期，而且有有效的開始時間。</li>
+          <li>符合條件時，會在開始時間前 30 分鐘提醒一次。</li>
+          <li><b>重要限制：</b>目前排程檢查只在網站頁面保持運作時進行。若完全關閉網站，關閉期間不會保證送出提醒，也不會在重新開啟時補發已錯過的提醒。</li>
+        </ul>
+        <div class="guide-note">通知不是鬧鐘保證服務。重要行程請同時使用裝置原生行事曆或鬧鐘作為備援。</div>
+      </section>
+
+      <section class="guide-section" id="guide-backup">
+        <h3>9. 設定、備份與匯出</h3>
+        <h4>Emoji 與定位</h4>
+        <ul>
+          <li><b>預設 Emoji：</b>從已加入的 Emoji 清單點選一個作為新增事項的預設圖示。</li>
+          <li><b>新增 Emoji：</b>在輸入框輸入 Emoji，再按「新增」加入清單；清單中的 ✕ 可刪除。</li>
+          <li><b>所在地與天氣：</b>選擇開啟或關閉定位，再按「確認並儲存」。取消變更不會套用剛才的選擇。</li>
+        </ul>
+        <h4>JSON 備份與還原</h4>
+        <ol>
+          <li>在設定按「匯出備份」，下載 JSON 檔案。建議定期備份，尤其是換裝置前。</li>
+          <li>在新裝置或新瀏覽器開啟同一網站，進入設定並按「匯入備份」。</li>
+          <li>選擇之前下載的 JSON 檔案，再依畫面選擇合併或取代。</li>
+        </ol>
+        <div class="guide-note"><b>合併：</b>把備份內容加入目前資料，通常較適合轉移時使用。<b>取代：</b>以備份內容覆蓋目前資料；匯入前請確認檔案正確，避免覆蓋較新的資料。</div>
+        <h4>匯出全部行程給 AI</h4>
+        <p>按「匯出全部行程給 AI」會產生 Markdown 檔案，整理所有事項的名稱、日期、時間、類型、完成狀態與每週重複規則。可以把檔案交給 AI，讓 AI 協助閱讀或整理行程。</p>
+        <p>匯出保留原本的重複規則，不會把每一次重複展開成一堆重複資料。日期以 MM/DD 呈現，因為目前記事本身沒有儲存年份。</p>
+        <h4>匯出月曆與時間軸圖片</h4>
+        <ul>
+          <li><b>月曆照片：</b>在設定選年份與月份，可跨年份加入多個月份，最後匯出一張 PNG 長圖片。</li>
+          <li><b>時間軸圖片：</b>在時間軸視圖按匯出，選擇起訖日期，預覽後下載 PNG。</li>
+        </ul>
+      </section>
+
+      <section class="guide-section" id="guide-faq">
+        <h3>10. 常見問題與使用提醒</h3>
+        <div class="guide-faq-item"><b>Q：為什麼新增後找不到事項？</b><p>先確認日期是否選取成功；若沒有日期，請到「待辦事項」區查看。若在月曆或時間軸，記得確認目前瀏覽的月份。</p></div>
+        <div class="guide-faq-item"><b>Q：為什麼輸入 900 也能變成 0900？</b><p>開始與結束時間支援三位數輸入，儲存前會自動補上前導 0。建議仍以四位數輸入最清楚。</p></div>
+        <div class="guide-faq-item"><b>Q：多天一次為什麼只在截止日顯示完成？</b><p>因為這種模式代表區間內完成一次即可。未完成時會在區間日期顯示；完成後只在截止日留下完成標記，避免看起來像每天都要做。</p></div>
+        <div class="guide-faq-item"><b>Q：換手機或瀏覽器後資料不見了？</b><p>資料預設保存在原本裝置的瀏覽器，不會自動跨裝置同步。請在舊裝置先匯出 JSON，再到新裝置匯入。</p></div>
+        <div class="guide-faq-item"><b>Q：為什麼網站關閉後沒有收到提醒？</b><p>目前提醒只在網站頁面保持運作時檢查；完全關閉網站期間不會保證通知送達。</p></div>
+        <div class="guide-faq-item"><b>Q：月曆或 AI 匯出的年份怎麼處理？</b><p>目前一般行程日期只記錄月日，不記錄年份。因此匯出 AI 行程時不會自行猜測年份；月曆圖片則會依你選的年份排列星期。</p></div>
+        <div class="guide-note">建議養成三個習慣：重要事項設定日期與時間、完成後即時標記、定期匯出 JSON 備份。這樣最不容易漏事，也比較不怕換裝置。</div>
       </section>
       <button type="button" class="btn btn-primary" id="guide-done" style="width:100%;margin-top:4px;">我知道了</button>
     </div>
