@@ -1416,19 +1416,44 @@
 
     function overlapRange(a, b) {
       if (!a.date || !b.date) return null;
+
+      // 將日期與時間合併成真正的時間戳；未填開始時間視為當日 00:00，
+      // 未填結束時間視為截止日結束，保留沒有設定時間的舊任務行為。
       const year = new Date().getFullYear();
-      const toDate = value => new Date(year, Number(value.slice(0, 2)) - 1, Number(value.slice(2, 4)));
-      const aStart = toDate(a.date);
-      const bStart = toDate(b.date);
-      let aEnd = toDate(a.endDate || a.date);
-      let bEnd = toDate(b.endDate || b.date);
-      if (aEnd < aStart) aEnd.setFullYear(aEnd.getFullYear() + 1);
-      if (bEnd < bStart) bEnd.setFullYear(bEnd.getFullYear() + 1);
-      const start = aStart > bStart ? aStart : bStart;
-      const end = aEnd < bEnd ? aEnd : bEnd;
-      if (start > end) return null;
+      const makeDateTime = (dateValue, timeValue, isEnd) => {
+        const date = new Date(year, Number(dateValue.slice(0, 2)) - 1, Number(dateValue.slice(2, 4)));
+        const time = /^\d{4}$/.test(timeValue || '') ? timeValue : '';
+        if (!time && isEnd) date.setHours(23, 59, 59, 999);
+        else if (time) date.setHours(Number(time.slice(0, 2)), Number(time.slice(2, 4)), 0, 0);
+        return date;
+      };
+      const getInterval = item => {
+        const start = makeDateTime(item.date, item.time, false);
+        const endDateValue = item.endDate || item.date;
+        let end = makeDateTime(endDateValue, item.endTime, true);
+        if (end < start) {
+          // 同一天結束時間早於開始時間，代表跨午夜；日期區間跨年也在此處自然校正。
+          if (endDateValue === item.date) end.setDate(end.getDate() + 1);
+          else end.setFullYear(end.getFullYear() + 1);
+        }
+        return { start, end };
+      };
+
+      const aInterval = getInterval(a);
+      const bInterval = getInterval(b);
+      // 使用半開區間：前一段結束的同一刻，下一段可以開始，不算重疊。
+      if (!(aInterval.start < bInterval.end && bInterval.start < aInterval.end)) return null;
+
+      const overlapStart = new Date(Math.max(aInterval.start.getTime(), bInterval.start.getTime()));
+      const overlapEnd = new Date(Math.min(aInterval.end.getTime(), bInterval.end.getTime()));
       const fmt = date => String(date.getMonth() + 1).padStart(2, '0') + String(date.getDate()).padStart(2, '0');
-      return { start: fmt(start), end: fmt(end) };
+      const fmtTime = date => String(date.getHours()).padStart(2, '0') + String(date.getMinutes()).padStart(2, '0');
+      return {
+        start: fmt(overlapStart),
+        end: fmt(overlapEnd),
+        startTime: fmtTime(overlapStart),
+        endTime: fmtTime(overlapEnd)
+      };
     }
 
     function findDateOverlap(candidates) {
@@ -1475,12 +1500,14 @@
 
       // 新增或修改前，只檢查本事件的各次日期是否互相重疊。
       const candidates = effectiveTaskMode === 'fixed-multi'
-        ? datesArray.filter(Boolean).map(singleD => ({ date: singleD, endDate: '', repeat: repeatOpt }))
-        : [{ date: datesArray[0], endDate: datesArray[datesArray.length - 1], repeat: repeatOpt }];
+        ? datesArray.filter(Boolean).map(singleD => ({ date: singleD, endDate: '', time: t, endTime: et, repeat: repeatOpt }))
+        : [{ date: datesArray[0], endDate: datesArray[datesArray.length - 1], time: t, endTime: et, repeat: repeatOpt }];
       const overlap = findDateOverlap(candidates);
       if (overlap) {
-        const rangeText = overlap.start === overlap.end ? overlap.start : overlap.start + '–' + overlap.end;
-        errMsg.innerText = '日期重疊：' + rangeText + ' 在本事件的重複日期中發生重疊，請調整日期或重複設定。';
+        const rangeText = overlap.start === overlap.end
+          ? overlap.start + ' ' + overlap.startTime + '–' + overlap.endTime
+          : overlap.start + ' ' + overlap.startTime + '～' + overlap.end + ' ' + overlap.endTime;
+        errMsg.innerText = '時間區間重疊：' + rangeText + ' 與本事件的其他重複時段重疊，請調整日期或時間。';
         errMsg.style.display = 'block';
         return;
       }
