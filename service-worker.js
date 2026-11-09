@@ -1,9 +1,9 @@
 // Service worker for offline caching and PWA updates.
-const CACHE_NAME = 'simple-diary-pwa-v54';
+const CACHE_NAME = 'simple-diary-pwa-v55';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icons/icon.svg'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL.map(path => new Request(path, { cache: 'reload' })))));
   self.skipWaiting();
 });
 
@@ -21,7 +21,7 @@ self.addEventListener('fetch', event => {
 
   // Network first: get the latest app files whenever online; use cache only when offline.
   event.respondWith(
-    fetch(event.request).then(response => {
+    fetch(new Request(event.request, { cache: 'no-store' })).then(response => {
       if (response && response.ok) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
