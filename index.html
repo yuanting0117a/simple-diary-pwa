@@ -3424,6 +3424,7 @@
     let countdownRemaining = 1500000;
     let countdownRunning = false;
     let countdownFinished = false;
+    let countdownHasStarted = false;
     function formatCountdown(ms) {
       const total = Math.max(0, Math.ceil(ms / 1000));
       const h = Math.floor(total / 3600);
@@ -3438,7 +3439,7 @@
       countdownHours.disabled = countdownRunning;
       countdownMinutes.disabled = countdownRunning;
       countdownToggle.disabled = countdownFinished;
-      countdownToggle.textContent = countdownRunning ? '暫停' : (countdownRemaining < (Math.max(0, Number(countdownHours.value) || 0) * 60 + Math.max(0, Math.min(59, Number(countdownMinutes.value) || 0))) * 60000 && countdownStatus.textContent === '已暫停' ? '繼續' : '開始');
+      countdownToggle.textContent = countdownRunning ? '暫停' : (countdownHasStarted && !countdownFinished ? '繼續' : '開始');
       countdownStatus.classList.toggle('paused', !countdownRunning && countdownStatus.textContent === '⏸ 已暫停');
     }
     function stopCountdownInterval() {
@@ -3498,6 +3499,7 @@
       }
       countdownEndAt = Date.now() + countdownRemaining;
       countdownRunning = true;
+      countdownHasStarted = true;
       countdownStatus.textContent = '倒數進行中';
       countdownInterval = setInterval(tickCountdown, 250);
       tickCountdown();
@@ -3507,6 +3509,7 @@
       stopCountdownInterval();
       countdownRunning = false;
       countdownFinished = false;
+      countdownHasStarted = false;
       countdownRemaining = (Math.max(0, Number(countdownHours.value) || 0) * 60 + Math.max(0, Math.min(59, Number(countdownMinutes.value) || 0))) * 60000;
       countdownStatus.textContent = '準備就緒';
       renderCountdown();
