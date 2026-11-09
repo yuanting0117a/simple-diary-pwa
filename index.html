@@ -760,7 +760,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v51</div>
+      <div class="app-version">v52</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2295,18 +2295,18 @@
       const rangeStart = start.getTime();
       const rangeEnd = end.getTime() + dayMs;
       const asDate = (md, year) => {
-        if (!md || !/^\d{4}$/.test(md)) return null;
+        if (!md || !/^\\d{4}$/.test(md)) return null;
         const month = Number(md.slice(0, 2)) - 1;
         const day = Number(md.slice(2, 4));
         const value = new Date(year, month, day);
         return value.getMonth() === month && value.getDate() === day ? value : null;
       };
-      const readMinutes = value => /^\d{4}$/.test(value || '') &&
+      const readMinutes = value => /^\\d{4}$/.test(value || '') &&
         Number(value.slice(0, 2)) < 24 && Number(value.slice(2, 4)) < 60
         ? Number(value.slice(0, 2)) * 60 + Number(value.slice(2, 4))
         : null;
 
-      // 每個事項依實際日期＋時間建立區間，再裁切到使用者選取的匯出範圍。
+      // 依實際日期＋時間建立區間，裁切到匯出範圍。
       const entries = [];
       getExpandedItems().forEach(item => {
         if (!item.date) return;
@@ -2320,7 +2320,6 @@
           const endMinutes = readMinutes(item.endTime);
           const itemStart = startDate.getTime() + (startMinutes === null ? 0 : startMinutes * 60000);
           let itemEnd;
-
           if (endMinutes !== null) {
             itemEnd = endDate.getTime() + endMinutes * 60000;
             if (endDate.getTime() === startDate.getTime() && itemEnd <= itemStart) itemEnd += dayMs;
@@ -2329,7 +2328,6 @@
           } else {
             itemEnd = endDate.getTime() + dayMs;
           }
-
           if (itemEnd <= itemStart) itemEnd = itemStart + 3600000;
           const clippedStart = Math.max(itemStart, rangeStart);
           const clippedEnd = Math.min(itemEnd, rangeEnd);
@@ -2337,34 +2335,14 @@
         }
       });
 
+      // 每筆事項各佔一排，不再把同批次或重疊區間擠在同一排。
       entries.sort((a, b) => a.start - b.start || a.end - b.end ||
         String(a.item.id).localeCompare(String(b.item.id)));
 
-      // 同一批次共用一排；舊資料沒有 groupId 時，各自獨立成組。
-      const exportGroups = new Map();
-      entries.forEach(entry => {
-        const groupKey = entry.item.groupId || 'item_' + entry.item.id;
-        if (!exportGroups.has(groupKey)) {
-          exportGroups.set(groupKey, { key: groupKey, entries: [], start: Infinity, end: -Infinity });
-        }
-        const group = exportGroups.get(groupKey);
-        group.entries.push(entry);
-        group.start = Math.min(group.start, entry.start);
-        group.end = Math.max(group.end, entry.end);
-      });
-      const orderedExportGroups = [...exportGroups.values()].sort((a, b) => a.start - b.start);
-      const exportLanes = [];
-      orderedExportGroups.forEach(group => {
-        let lane = exportLanes.findIndex(laneEnd => laneEnd <= group.start);
-        if (lane < 0) lane = exportLanes.length;
-        exportLanes[lane] = group.end;
-        group.lane = lane;
-      });
-
-      const pad = 24, labelW = 280, colW = 48, headH = 82, rowH = 42;
+      const pad = 24, colW = 56, headH = 82, rowH = 30;
       const canvas = document.createElement('canvas');
-      canvas.width = pad * 2 + labelW + count * colW;
-      canvas.height = pad * 2 + headH + Math.max(1, exportLanes.length) * rowH;
+      canvas.width = pad * 2 + count * colW;
+      canvas.height = pad * 2 + headH + Math.max(1, entries.length) * rowH;
       if (canvas.width > 30000 || canvas.height > 30000) {
         alert('圖片尺寸過大，請縮短日期範圍或減少事項數量。');
         return;
@@ -2388,7 +2366,7 @@
       c.fillStyle = '#777780';
       c.fillText(timelineExportStart.value + ' ～ ' + timelineExportEnd.value, pad + 12, pad + 57);
 
-      const gx = pad + labelW;
+      const gx = pad;
       c.fillStyle = '#eceff4';
       c.fillRect(gx, pad + headH - 24, count * colW, 30);
       for (let i = 0; i < count; i++) {
@@ -2400,77 +2378,54 @@
         c.fillText((d.getMonth() + 1) + '/' + d.getDate(), x + colW / 2, pad + headH - 30);
         c.font = '8px sans-serif';
         c.fillStyle = '#777780';
-        [['00', 0], ['06', 12], ['12', 24], ['18', 36]].forEach(([label, offset]) => {
-          c.fillText(label, x + offset + 6, pad + headH - 5);
+        [['00', 0], ['06', 14], ['12', 28], ['18', 42]].forEach(([label, offset]) => {
+          c.fillText(label, x + offset + 7, pad + headH - 5);
         });
-        c.strokeStyle = '#e5e6eb';
+
+        // 每一天都有淡灰色分隔線；每週週一以較粗、較長的藍線標示。
+        c.strokeStyle = '#d9dde6';
+        c.lineWidth = 1;
         c.beginPath();
         c.moveTo(x, pad + headH + 6);
         c.lineTo(x, canvas.height - pad);
         c.stroke();
-        [12, 24, 36].forEach(offset => {
-          c.strokeStyle = '#f0f0f3';
+
+        if (d.getDay() === 1) {
+          c.strokeStyle = '#3478d4';
+          c.lineWidth = 3;
+          c.beginPath();
+          c.moveTo(x, pad + headH - 24);
+          c.lineTo(x, canvas.height - pad);
+          c.stroke();
+        }
+
+        [14, 28, 42].forEach(offset => {
+          c.strokeStyle = '#f0f1f4';
+          c.lineWidth = 1;
           c.beginPath();
           c.moveTo(x + offset, pad + headH + 6);
           c.lineTo(x + offset, canvas.height - pad);
           c.stroke();
         });
       }
-      c.strokeStyle = '#c5c7ce';
+      c.strokeStyle = '#d9dde6';
+      c.lineWidth = 1;
       c.beginPath();
       c.moveTo(gx + count * colW, pad + headH + 6);
       c.lineTo(gx + count * colW, canvas.height - pad);
       c.stroke();
 
-      orderedExportGroups.forEach(group => {
-        const y = pad + headH + group.lane * rowH + 26;
-        const firstItem = group.entries[0].item;
-        const labelParts = [];
-        if (firstItem.emoji || userDefaultEmoji) labelParts.push(firstItem.emoji || userDefaultEmoji);
-        const formatMD = value => value && /^\\d{4}$/.test(value)
-          ? value.slice(0, 2) + '/' + value.slice(2, 4)
-          : '';
-        const startMD = formatMD(firstItem.date);
-        const endMD = formatMD(firstItem.endDate || firstItem.date);
-        if (firstItem.time && firstItem.endTime) {
-          labelParts.push(startMD + ' ' + firstItem.time + '～' + endMD + ' ' + firstItem.endTime);
-        } else if (firstItem.time) {
-          labelParts.push(startMD + ' ' + firstItem.time);
-        } else if (startMD) {
-          labelParts.push(startMD + (endMD && endMD !== startMD ? '～' + endMD : ''));
-        }
-        labelParts.push(firstItem.text || '（未命名事項）');
-
-        c.strokeStyle = '#ececf0';
-        c.beginPath();
-        c.moveTo(pad, y + 8);
-        c.lineTo(canvas.width - pad, y + 8);
-        c.stroke();
-
-        c.font = '12px sans-serif';
-        c.textAlign = 'left';
-        c.fillStyle = firstItem.completed ? '#999' : '#303039';
-        const label = labelParts.join('　');
-        // 限制在左側標籤欄內，長文字不會侵入時間軸或蓋住其他列。
-        c.save();
-        c.beginPath();
-        c.rect(pad + 6, y - 12, labelW - 12, 24);
-        c.clip();
-        c.fillText(label, pad + 8, y + 4, labelW - 16);
-        c.restore();
-
-        // 長條只負責表示時間位置；文字統一放在左側批次標籤，避免重複與重疊。
-        group.entries.forEach(entry => {
-          const item = entry.item;
-          const left = (entry.start - rangeStart) / dayMs * colW;
-          const right = (entry.end - rangeStart) / dayMs * colW;
-          const x = gx + left + 1;
-          const w = Math.max(2, right - left - 2);
-          c.fillStyle = item.completed ? '#d8d9df' : '#cfe3ff';
-          c.fillRect(x, y - 10, w, 20);
-          c.strokeStyle = item.completed ? '#b8bac2' : '#86b9f2';
-          c.strokeRect(x, y - 10, w, 20);
-        });
+      entries.forEach((entry, index) => {
+        const y = pad + headH + index * rowH + rowH / 2 + 6;
+        const left = (entry.start - rangeStart) / dayMs * colW;
+        const right = (entry.end - rangeStart) / dayMs * colW;
+        const x = gx + left + 1;
+        const w = Math.max(2, right - left - 2);
+        c.fillStyle = entry.item.completed ? '#d8d9df' : '#cfe3ff';
+        c.fillRect(x, y - 8, w, 16);
+        c.strokeStyle = entry.item.completed ? '#b8bac2' : '#86b9f2';
+        c.lineWidth = 1;
+        c.strokeRect(x, y - 8, w, 16);
       });
 
       if (!entries.length) {
