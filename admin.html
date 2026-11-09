@@ -15,7 +15,7 @@ input{width:100%;box-sizing:border-box;margin:6px 0 10px}
 button{background:#4778e8;color:white;border:0;cursor:pointer}
 button.secondary{background:#e9edf7;color:#30394b}
 .muted{color:#747b8c;font-size:13px}
-.device{font-weight:700;margin-bottom:10px}
+.device{font-weight:700;margin:0;cursor:pointer;list-style:none}.device::-webkit-details-marker{display:none}.device-wrap[open] .device:after{content:"－"}.device:after{content:"＋";float:right;color:#7b8497}.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.toolbar label{font-size:13px;color:#747b8c}.toolbar select{font:inherit;border:1px solid #d8dbe5;border-radius:9px;padding:8px 10px;background:white;color:#30394b}.device-content{margin-top:10px}
 .item{border-top:1px solid #eceef3;padding:12px 0}
 .item:first-child{border-top:0}
 .item h3{font-size:16px;margin:0 0 5px}
@@ -37,6 +37,7 @@ button.secondary{background:#e9edf7;color:#30394b}
 <div id="message" role="status"></div>
 <p class="muted">此頁只讀取雲端通知資料，不會修改或刪除使用者資料。</p>
 </section>
+<section class="panel toolbar"><label for="sort">通知排序</label><select id="sort"><option value="newest">時間：新到舊</option><option value="oldest">時間：舊到新</option><option value="pending">未送出優先</option><option value="sent">已送出優先</option></select></section>
 <div id="summary"></div>
 <div id="results"></div>
 </main>
@@ -48,6 +49,8 @@ const results = document.getElementById("results");
 const summary = document.getElementById("summary");
 const loadButton = document.getElementById("load");
 const refreshButton = document.getElementById("refresh");
+const sortSelect = document.getElementById("sort");
+let latestData = null;
 let adminPassword = "";
 function dateText(value){
   if(!Number.isFinite(value)) return "未設定時間";
@@ -59,39 +62,52 @@ function el(tag,className,text){
   if(text!==undefined) node.textContent=text;
   return node;
 }
-async function load(){
-  adminPassword=passwordInput.value || adminPassword;
-  if(!adminPassword){message.textContent="請先輸入管理者密碼。";return;}
-  message.textContent="載入中…";
+function render(){
+  if(!latestData) return;
+  const data=latestData;
+  const totalReminders=data.devices.reduce((sum,device)=>sum+device.reminders.length,0);
+  summary.replaceChildren(el("section","panel","共 "+data.totalDevices+" 台裝置 · "+totalReminders+" 筆通知"));
   results.replaceChildren();
+  const mode=sortSelect.value;
+  for(const device of data.devices){
+    const card=el("section","panel");
+    const details=el("details","device-wrap");
+    details.append(el("summary","device","裝置 "+device.device+" · "+(device.hasPush?"通知已啟用":"目前未啟用通知")+" · "+device.reminders.length+" 筆"));
+    const content=el("div","device-content");
+    if(!device.reminders.length) content.append(el("p","muted","目前沒有同步的通知"));
+    const reminders=[...device.reminders].sort((a,b)=>{
+      const at=Number.isFinite(a.reminderAt)?a.reminderAt:0;
+      const bt=Number.isFinite(b.reminderAt)?b.reminderAt:0;
+      if(mode==="oldest") return at-bt;
+      if(mode==="pending") return Number(!!a.sent)-Number(!!b.sent)||at-bt;
+      if(mode==="sent") return Number(!!b.sent)-Number(!!a.sent)||bt-at;
+      return bt-at;
+    });
+    for(const reminder of reminders){
+      const item=el("div","item");
+      item.append(el("h3","",reminder.title||"（沒有標題）"));
+      item.append(el("p","",reminder.body||"（沒有內容）"));
+      item.append(el("p","muted","通知時間："+dateText(reminder.reminderAt)));
+      item.append(el("span","status"+(reminder.sent?" sent":""),reminder.sent?"已送出":"尚未送出"));
+      content.append(item);
+    }
+    details.append(content); card.append(details); results.append(card);
+  }
+}
+async function load(){
+  adminPassword=passwordInput.value||adminPassword;
+  if(!adminPassword){message.textContent="請先輸入管理者密碼。";return;}
+  message.textContent="載入中…"; results.replaceChildren();
   try{
     const response=await fetch(API,{headers:{Authorization:"Bearer "+adminPassword}});
     const data=await response.json();
-    if(!response.ok){
-      if(response.status===401) adminPassword="";
-      throw new Error(response.status===401?"密碼錯誤。":data.error||"讀取失敗");
-    }
-    summary.replaceChildren(el("section","panel", "共 "+data.totalDevices+" 台裝置"));
-    for(const device of data.devices){
-      const card=el("section","panel");
-      card.append(el("div","device","裝置 "+device.device+" · "+(device.hasPush?"通知已啟用":"目前未啟用通知")));
-      if(!device.reminders.length) card.append(el("p","muted","目前沒有同步的通知"));
-      for(const reminder of device.reminders){
-        const item=el("div","item");
-        item.append(el("h3","",reminder.title||"（沒有標題）"));
-        item.append(el("p","",reminder.body||"（沒有內容）"));
-        item.append(el("p","muted","通知時間："+dateText(reminder.reminderAt)));
-        item.append(el("span","status"+(reminder.sent?" sent":""),reminder.sent?"已送出":"尚未送出"));
-        card.append(item);
-      }
-      results.append(card);
-    }
-    message.textContent="更新完成";
-    refreshButton.hidden=false;
+    if(!response.ok){if(response.status===401)adminPassword="";throw new Error(response.status===401?"密碼錯誤。":data.error||"讀取失敗");}
+    latestData=data; render(); message.textContent="更新完成"; refreshButton.hidden=false;
   }catch(error){message.textContent=error.message;}
 }
 loadButton.addEventListener("click",load);
 refreshButton.addEventListener("click",load);
+sortSelect.addEventListener("change",render);
 passwordInput.addEventListener("keydown",event=>{if(event.key==="Enter")load();});
 </script>
 </body>
