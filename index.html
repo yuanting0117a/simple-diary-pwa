@@ -1496,7 +1496,10 @@
         untilDate: document.getElementById('repeat-until-input').value.trim()
       } : null;
 
-      const groupId = effectiveTaskMode === 'pick-one' ? `group_${Date.now()}` : null;
+      const existingItem = editingItemId ? db.find(x => x.id === editingItemId) : null;
+      const groupId = existingItem
+        ? (existingItem.groupId || `batch_legacy_${existingItem.id}`)
+        : `batch_${Date.now()}`;
 
       // 新增或修改前，只檢查本事件的各次日期是否互相重疊。
       const candidates = effectiveTaskMode === 'fixed-multi'
@@ -1519,7 +1522,7 @@
             item.emoji = em; item.date = datesArray[0] || ''; item.time = t;
             item.endDate = ''; item.endTime = et; item.text = txt;
             item.completed = item.completed || false; item.repeat = repeatOpt;
-            item.taskType = 'fixed-multi'; item.groupId = null;
+            item.taskType = 'fixed-multi'; item.groupId = groupId;
           }
         } else {
           datesArray.forEach((singleD, idx) => {
@@ -1527,7 +1530,7 @@
               id: Date.now() + idx, emoji: em, date: singleD, time: t,
               endDate: '', endTime: et, text: txt,
               completed: false, repeat: repeatOpt,
-              taskType: 'fixed-multi', groupId: null,
+              taskType: 'fixed-multi', groupId,
             });
           });
         }
@@ -2017,13 +2020,23 @@
         return;
       }
 
-      // 依照實際日期＋時間分配軌道：時間不重疊的事項可共用同一排。
-      const lanes = [];
+      // 同一次新增的事項固定在同一排；不同批次才依時間區間分配列位。
+      const timelineGroups = new Map();
       monthItems.forEach(entry => {
-        let laneIndex = lanes.findIndex(laneEnd => laneEnd <= entry.startX);
-        if (laneIndex < 0) laneIndex = lanes.length;
-        lanes[laneIndex] = entry.endX;
-        entry.laneIndex = laneIndex;
+        const groupKey = entry.item.groupId || `item_${entry.item.id}`;
+        if (!timelineGroups.has(groupKey)) timelineGroups.set(groupKey, { key: groupKey, entries: [], start: Infinity, end: -Infinity });
+        const group = timelineGroups.get(groupKey);
+        group.entries.push(entry);
+        group.start = Math.min(group.start, entry.startX);
+        group.end = Math.max(group.end, entry.endX);
+      });
+      const orderedTimelineGroups = [...timelineGroups.values()].sort((a, b) => a.start - b.start);
+      const timelineLanes = [];
+      orderedTimelineGroups.forEach(group => {
+        let laneIndex = timelineLanes.findIndex(laneEnd => laneEnd <= group.start);
+        if (laneIndex < 0) laneIndex = timelineLanes.length;
+        timelineLanes[laneIndex] = group.end;
+        group.entries.forEach(entry => { entry.laneIndex = laneIndex; });
       });
 
       monthItems.forEach(({ item, startX, endX, startDate, laneIndex }) => {
@@ -2046,7 +2059,7 @@
         ganttBody.appendChild(bar);
       });
 
-      ganttBody.style.height = `${10 + lanes.length * 28 + 16}px`;
+      ganttBody.style.height = `${10 + timelineLanes.length * 28 + 16}px`;
     }
 
     document.getElementById('timeline-prev-m').addEventListener('click', (e) => {
@@ -2321,88 +2334,15 @@
       entries.sort((a, b) => a.start - b.start || a.end - b.end ||
         String(a.item.id).localeCompare(String(b.item.id)));
 
-      // 依照實際時間分配列位，重疊事項分開，不重疊事項共用同一列。
-      const lanes = [];
-      entries.forEach(entry => {
-        let lane = lanes.findIndex(laneEnd => laneEnd <= entry.start);
-        if (lane < 0) lane = lanes.length;
-        lanes[lane] = entry.end;
-        entry.lane = lane;
-      });
-
-      const pad = 24, labelW = 280, colW = 48, headH = 82, rowH = 34;
-      const canvas = document.createElement('canvas');
-      canvas.width = pad * 2 + labelW + count * colW;
-      canvas.height = pad * 2 + headH + Math.max(1, lanes.length) * rowH;
-      if (canvas.width > 30000 || canvas.height > 30000) {
-        alert('圖片尺寸過大，請縮短日期範圍或減少重疊事項。');
-        return;
-      }
-
-      const c = canvas.getContext('2d');
-      if (!c) {
-        alert('目前無法建立時間軸圖片，請稍後再試。');
-        return;
-      }
-      c.fillStyle = '#f1f2f5';
-      c.fillRect(0, 0, canvas.width, canvas.height);
-      c.fillStyle = '#fff';
-      c.fillRect(pad, pad, canvas.width - pad * 2, canvas.height - pad * 2);
-
-      c.fillStyle = '#202027';
-      c.font = 'bold 27px sans-serif';
-      c.textAlign = 'left';
-      c.fillText('簡潔記事｜時間軸', pad + 12, pad + 32);
-      c.font = '14px sans-serif';
-      c.fillStyle = '#777780';
-      c.fillText(timelineExportStart.value + ' ～ ' + timelineExportEnd.value, pad + 12, pad + 57);
-
-      const gx = pad + labelW;
-      c.fillStyle = '#eceff4';
-      c.fillRect(gx, pad + headH - 24, count * colW, 30);
-      c.font = '10px sans-serif';
-      c.textAlign = 'center';
-      for (let i = 0; i < count; i++) {
-        const d = new Date(rangeStart + i * dayMs);
-        const x = gx + i * colW;
-        c.fillStyle = '#454550';
-        c.font = '11px sans-serif';
-        c.fillText((d.getMonth() + 1) + '/' + d.getDate(), x + colW / 2, pad + headH - 30);
-        c.font = '8px sans-serif';
-        c.fillStyle = '#777780';
-        [['00', 0], ['06', 12], ['12', 24], ['18', 36]].forEach(([label, offset]) => {
-          c.fillText(label, x + offset + 6, pad + headH - 5);
-        });
-        c.strokeStyle = '#e5e6eb';
-        c.beginPath();
-        c.moveTo(x, pad + headH + 6);
-        c.lineTo(x, canvas.height - pad);
-        c.stroke();
-        [12, 24, 36].forEach(offset => {
-          c.strokeStyle = '#f0f0f3';
-          c.beginPath();
-          c.moveTo(x + offset, pad + headH + 6);
-          c.lineTo(x + offset, canvas.height - pad);
-          c.stroke();
-        });
-      }
-      c.strokeStyle = '#c5c7ce';
-      c.beginPath();
-      c.moveTo(gx + count * colW, pad + headH + 6);
-      c.lineTo(gx + count * colW, canvas.height - pad);
-      c.stroke();
-
-      entries.forEach(entry => {
-        const y = pad + headH + entry.lane * rowH + 22;
-        const item = entry.item;
-        const left = (entry.start - rangeStart) / dayMs * colW;
-        const right = (entry.end - rangeStart) / dayMs * colW;
-        const x = gx + left + 1;
-        const w = Math.max(2, right - left - 2);
+      // 一次新增的所有事項共用一排；左側只顯示一次批次標籤，避免文字互相覆蓋。
+      const exportGroups = new Map();
+      orderedExportGroups.forEach(group => {
+        const y = pad + headH + group.lane * rowH + 26;
+        const firstItem = group.entries[0].item;
         const labelParts = [];
-        if (item.emoji || userDefaultEmoji) labelParts.push(item.emoji || userDefaultEmoji);
-        if (item.time) labelParts.push(item.endTime ? item.time + '～' + item.endTime : item.time);
-        labelParts.push(item.text || '（未命名事項）');
+        if (firstItem.emoji || userDefaultEmoji) labelParts.push(firstItem.emoji || userDefaultEmoji);
+        if (firstItem.time) labelParts.push(firstItem.endTime ? firstItem.time + '～' + firstItem.endTime : firstItem.time);
+        labelParts.push(firstItem.text || '（未命名事項）');
 
         c.strokeStyle = '#ececf0';
         c.beginPath();
@@ -2412,24 +2352,32 @@
 
         c.font = '12px sans-serif';
         c.textAlign = 'left';
-        c.fillStyle = item.completed ? '#999' : '#303039';
+        c.fillStyle = firstItem.completed ? '#999' : '#303039';
         const label = labelParts.join('　');
         c.fillText(label.length > 34 ? label.slice(0, 33) + '…' : label, pad + 8, y + 4);
 
-        c.fillStyle = item.completed ? '#d8d9df' : '#cfe3ff';
-        c.fillRect(x, y - 10, w, 20);
-        c.strokeStyle = item.completed ? '#b8bac2' : '#86b9f2';
-        c.strokeRect(x, y - 10, w, 20);
-        if (w > 58) {
-          c.save();
-          c.beginPath();
-          c.rect(x + 3, y - 9, w - 6, 18);
-          c.clip();
-          c.fillStyle = item.completed ? '#777780' : '#245b96';
-          c.font = '10px sans-serif';
-          c.fillText(item.text || '', x + 5, y + 3);
-          c.restore();
-        }
+        // 同組的每個事項各自保留時間位置，但共用同一條水平列。
+        group.entries.forEach(entry => {
+          const item = entry.item;
+          const left = (entry.start - rangeStart) / dayMs * colW;
+          const right = (entry.end - rangeStart) / dayMs * colW;
+          const x = gx + left + 1;
+          const w = Math.max(2, right - left - 2);
+          c.fillStyle = item.completed ? '#d8d9df' : '#cfe3ff';
+          c.fillRect(x, y - 10, w, 20);
+          c.strokeStyle = item.completed ? '#b8bac2' : '#86b9f2';
+          c.strokeRect(x, y - 10, w, 20);
+          if (w > 58) {
+            c.save();
+            c.beginPath();
+            c.rect(x + 3, y - 9, w - 6, 18);
+            c.clip();
+            c.fillStyle = item.completed ? '#777780' : '#245b96';
+            c.font = '10px sans-serif';
+            c.fillText(item.text || '', x + 5, y + 3);
+            c.restore();
+          }
+        });
       });
 
       if (!entries.length) {
