@@ -763,7 +763,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v56.1</div>
+      <div class="app-version">v56.2</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2376,15 +2376,35 @@
         }
       });
 
-      // 每筆事項各佔一排，不再把同批次或重疊區間擠在同一排。
+      // 與主時間軸相同：同一批次固定同一排，不同批次依整組時間範圍分配列位。
       entries.sort((a, b) => a.start - b.start || a.end - b.end ||
         String(a.item.id).localeCompare(String(b.item.id)));
+      const timelineGroups = new Map();
+      entries.forEach(entry => {
+        const groupKey = entry.item.groupId || `item_${entry.item.id}`;
+        if (!timelineGroups.has(groupKey)) timelineGroups.set(groupKey, { entries: [], start: Infinity, end: -Infinity });
+        const group = timelineGroups.get(groupKey);
+        group.entries.push(entry);
+        group.start = Math.min(group.start, entry.start);
+        group.end = Math.max(group.end, entry.end);
+      });
+      const orderedGroups = [...timelineGroups.values()].sort((a, b) => a.start - b.start);
+      const timelineLanes = [];
+      orderedGroups.forEach(group => {
+        let laneIndex = timelineLanes.findIndex(laneEnd => laneEnd <= group.start);
+        if (laneIndex < 0) laneIndex = timelineLanes.length;
+        timelineLanes[laneIndex] = group.end;
+        group.entries.forEach(entry => { entry.laneIndex = laneIndex; });
+      });
 
-      // 匯出預覽沿用主時間軸：每日 96px、每 6 小時一格、相同長條樣式。
+      // 匯出預覽沿用主時間軸的分組排位；下方另列完整名稱，長條文字則自動省略。
       const pad = 24, colW = 96, headH = 72, rowH = 32;
+      const listTop = pad + headH + Math.max(1, timelineLanes.length) * rowH + 18;
+      const listRowH = 24;
+      const listHeight = entries.length ? 28 + entries.length * listRowH : 0;
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(pad * 2 + count * colW, 600);
-      canvas.height = pad * 2 + headH + Math.max(1, entries.length) * rowH;
+      canvas.height = listTop + listHeight + pad;
       if (canvas.width > 30000 || canvas.height > 30000) {
         alert('圖片尺寸過大，請縮短日期範圍或減少事項數量。');
         return;
@@ -2463,9 +2483,9 @@
         }
       }
 
-      // 每筆事項各佔一排，避免重疊；長條外觀與主時間軸一致。
-      entries.forEach((entry, index) => {
-        const y = pad + headH + index * rowH + 2;
+      // 同批次事項使用同一列；長條內保留時間、不顯示日期，過長文字自動省略。
+      entries.forEach(entry => {
+        const y = pad + headH + entry.laneIndex * rowH + 2;
         const left = (entry.start - rangeStart) / dayMs * colW;
         const right = (entry.end - rangeStart) / dayMs * colW;
         const x = gx + left + 2;
@@ -2479,14 +2499,11 @@
         c.fill();
         c.stroke();
 
-        const startDate = new Date(entry.start);
-        const endDate = new Date(entry.end);
-        const fmtDate = d => String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
-        const fmtTime = d => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
         const em = item.emoji || userDefaultEmoji || '';
-        const label = (em ? em + ' ' : '') +
-          '[' + fmtDate(startDate) + ' ' + fmtTime(startDate) + '～' + fmtDate(endDate) + ' ' + fmtTime(endDate) + '] ' +
-          (item.text || '');
+        const timeLabel = item.time
+          ? '[' + item.time + (item.endTime ? '～' + item.endTime : '') + '] '
+          : '';
+        const label = timeLabel + (em ? em + ' ' : '') + (item.text || '');
         c.save();
         c.beginPath();
         c.rect(x + 7, y, Math.max(0, w - 12), 22);
@@ -2496,9 +2513,38 @@
         c.textBaseline = 'middle';
         c.fillStyle = item.completed ? '#8e8e93' : '#3478d4';
         if (item.completed) c.globalAlpha = 0.65;
-        c.fillText(label, x + 7, y + 11);
+        let shortLabel = label;
+        const maxTextWidth = Math.max(0, w - 16);
+        while (shortLabel && c.measureText(shortLabel + '…').width > maxTextWidth) {
+          shortLabel = shortLabel.slice(0, -1);
+        }
+        if (shortLabel !== label) shortLabel += '…';
+        if (maxTextWidth > 0) c.fillText(shortLabel, x + 7, y + 11);
         c.restore();
       });
+
+      // 圖表下方列出完整事項名稱，避免長文字因長條寬度不足而遺失。
+      if (entries.length) {
+        const listX = pad + 12;
+        let listY = listTop;
+        c.fillStyle = '#202027';
+        c.font = 'bold 15px sans-serif';
+        c.textAlign = 'left';
+        c.fillText('事項完整名稱', listX, listY);
+        listY += 24;
+        entries.forEach(entry => {
+          const item = entry.item;
+          const em = item.emoji || userDefaultEmoji || '';
+          const timeLabel = item.time
+            ? item.time + (item.endTime ? '～' + item.endTime : '')
+            : '未設定時間';
+          const fullLabel = timeLabel + '　' + (em ? em + ' ' : '') + (item.text || '未命名事項');
+          c.font = '12px sans-serif';
+          c.fillStyle = item.completed ? '#8e8e93' : '#454550';
+          c.fillText(fullLabel, listX, listY);
+          listY += listRowH;
+        });
+      }
 
       if (!entries.length) {
         c.fillStyle = '#777';
