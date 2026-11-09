@@ -1744,7 +1744,7 @@
     document.getElementById('tab-cal').addEventListener('click', (e) => {
       e.preventDefault();
       currentView = 'cal'; switchTab('tab-cal');
-      openInputModalBtn.style.display = 'none';
+      openInputModalBtn.style.display = 'flex';
       listView.style.display = 'none'; timelineView.style.display = 'none';
       calendarContainer.style.display = 'block'; todoBox.style.display = 'block';
       renderCalendar();
