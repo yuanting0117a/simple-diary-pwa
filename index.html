@@ -760,7 +760,7 @@
   <header id="app-header">
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
-      <div class="app-version">v49</div>
+      <div class="app-version">v50</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2430,9 +2430,15 @@
         c.textAlign = 'left';
         c.fillStyle = firstItem.completed ? '#999' : '#303039';
         const label = labelParts.join('　');
-        c.fillText(label.length > 34 ? label.slice(0, 33) + '…' : label, pad + 8, y + 4);
+        // 限制在左側標籤欄內，長文字不會侵入時間軸或蓋住其他列。
+        c.save();
+        c.beginPath();
+        c.rect(pad + 6, y - 12, labelW - 12, 24);
+        c.clip();
+        c.fillText(label, pad + 8, y + 4, labelW - 16);
+        c.restore();
 
-        // 同一批次的長條保留各自的時間位置，但共用同一排。
+        // 長條只負責表示時間位置；文字統一放在左側批次標籤，避免重複與重疊。
         group.entries.forEach(entry => {
           const item = entry.item;
           const left = (entry.start - rangeStart) / dayMs * colW;
@@ -2443,16 +2449,6 @@
           c.fillRect(x, y - 10, w, 20);
           c.strokeStyle = item.completed ? '#b8bac2' : '#86b9f2';
           c.strokeRect(x, y - 10, w, 20);
-          if (w > 58) {
-            c.save();
-            c.beginPath();
-            c.rect(x + 3, y - 9, w - 6, 18);
-            c.clip();
-            c.fillStyle = item.completed ? '#777780' : '#245b96';
-            c.font = '10px sans-serif';
-            c.fillText(item.text || '', x + 5, y + 3);
-            c.restore();
-          }
         });
       });
 
