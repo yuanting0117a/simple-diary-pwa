@@ -2072,7 +2072,7 @@
       monthItems.forEach(entry => {
         const item = entry.item;
         const em = item.emoji || userDefaultEmoji || '';
-        const dateLabel = value => value && /^\\d{4}$/.test(value)
+        const dateLabel = value => value && /^\d{4}$/.test(value)
           ? value.slice(0, 2) + '/' + value.slice(2, 4)
           : '';
         const startLabel = dateLabel(item.date);
