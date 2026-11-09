@@ -1379,14 +1379,14 @@
     </div>
   </div>
 
-  <div class="section-box" id="todo-box">
-    <div class="section-header">📌 待辦事項 (未排定時間)</div>
-    <ul class="item-list" id="todo-list"></ul>
-  </div>
-
   <div class="section-box" id="overdue-box" style="display:none;">
     <div class="section-header">🔴 逾期事項（依日期收合）</div>
     <div id="overdue-list"></div>
+  </div>
+
+  <div class="section-box" id="todo-box">
+    <div class="section-header">📌 待辦事項 (未排定時間)</div>
+    <ul class="item-list" id="todo-list"></ul>
   </div>
 
   <div id="list-view"></div>
@@ -2438,6 +2438,7 @@
       openInputModalBtn.style.display = 'flex';
       listView.style.display = 'block'; timelineView.style.display = 'none';
       calendarContainer.style.display = 'none'; todoBox.style.display = 'block';
+      document.getElementById('overdue-box').style.display = document.getElementById('overdue-list').children.length ? 'block' : 'none';
     });
 
     document.getElementById('tab-cal').addEventListener('click', (e) => {
@@ -2446,6 +2447,7 @@
       openInputModalBtn.style.display = 'flex';
       listView.style.display = 'none'; timelineView.style.display = 'none';
       calendarContainer.style.display = 'block'; todoBox.style.display = 'block';
+      document.getElementById('overdue-box').style.display = 'none';
       renderCalendar();
     });
 
@@ -2455,6 +2457,7 @@
       openInputModalBtn.style.display = 'none';
       listView.style.display = 'none'; calendarContainer.style.display = 'none';
       timelineView.style.display = 'block'; todoBox.style.display = 'none';
+      document.getElementById('overdue-box').style.display = 'none';
       renderTimelineGantt();
     });
 
@@ -2575,7 +2578,7 @@
         group.appendChild(ul);
         overdueList.appendChild(group);
       });
-      overdueBox.style.display = overdueDates.length ? 'block' : 'none';
+      overdueBox.style.display = currentView === 'list' && overdueDates.length ? 'block' : 'none';
 
       let lastWeek = -1;
       upcomingDates.forEach(d => {
