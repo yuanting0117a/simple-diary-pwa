@@ -768,7 +768,7 @@
     <div class="header-top">
       <div class="app-title">簡潔記事</div>
       <button type="button" class="btn icon-btn weather-header-btn" id="weather-header-btn" title="每日問候與天氣" aria-label="每日問候與天氣">☀️</button>
-      <div class="app-version">v56.14</div>
+      <div class="app-version">v56.15</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -944,7 +944,7 @@
         <div style="font-size:0.8rem; font-weight:bold; margin:10px 0 6px;">🔔 通知測試</div>
         <button type="button" class="btn btn-primary" id="test-notification-btn" style="width:100%;">🔔 發送測試通知</button>
         <div id="notification-test-status" role="status" aria-live="polite" style="font-size:0.72rem; color:var(--text-sub); margin-top:6px;">按下後會詢問通知權限，允許後立即發送測試通知。</div>
-        <div style="font-size:0.72rem; color:var(--text-sub);">測試不會更改每日問候紀錄或記事資料。關閉設定後會自動重新上鎖。</div>
+        <div style="font-size:0.72rem; color:var(--text-sub);">允許通知後，網站保持開啟時，未完成且有開始時間的事項會提前 30 分鐘提醒。關閉網站期間不會補發提醒。</div><div style="font-size:0.72rem; color:var(--text-sub); margin-top:4px;">測試不會更改每日問候紀錄或記事資料。關閉設定後會自動重新上鎖。</div>
         <button type="button" class="btn" id="test-center-lock-btn" style="width:100%; margin-top:8px;">🔒 鎖定測試功能</button>
       </div>
     </div>
@@ -2999,6 +2999,59 @@
         button.disabled = false;
       }
     });
+
+    // 提醒排程：僅在網站頁面保持運作時檢查，使用者允許通知後才發送。
+    // 每筆有日期與開始時間的未完成事項，於開始前 30 分鐘提醒一次。
+    const REMINDER_SENT_KEY = 'SIMPLE_DIARY_REMINDERS_SENT';
+    const REMINDER_CHECK_INTERVAL = 15000;
+    function checkScheduledReminders() {
+      if (!('Notification' in window) || Notification.permission !== 'granted' || !('serviceWorker' in navigator)) return;
+      const now = new Date();
+      const nowMs = now.getTime();
+      let sent = [];
+      try {
+        sent = JSON.parse(localStorage.getItem(REMINDER_SENT_KEY) || '[]');
+        if (!Array.isArray(sent)) sent = [];
+      } catch (error) { sent = []; }
+
+      getExpandedItems().forEach(item => {
+        if (item.completed || !item.date || !/^\\d{4}$/.test(item.time || '') || !/^\\d{4}$/.test(item.date)) return;
+        const month = Number(item.date.slice(0, 2)) - 1;
+        const day = Number(item.date.slice(2, 4));
+        const hour = Number(item.time.slice(0, 2));
+        const minute = Number(item.time.slice(2, 4));
+        if (month < 0 || month > 11 || day < 1 || day > 31 || hour > 23 || minute > 59) return;
+        const start = new Date(now.getFullYear(), month, day, hour, minute, 0, 0);
+        if (start.getMonth() !== month || start.getDate() !== day) return;
+        const reminderAt = start.getTime() - 30 * 60 * 1000;
+        const remaining = reminderAt - nowMs;
+        // 允許 60 秒檢查窗，避免同一分鐘內重複通知；開啟網站時已錯過的提醒不補發。
+        if (remaining < 0 || remaining > 60000) return;
+        const key = String(item.id) + '_' + item.date + '_' + item.time;
+        if (sent.includes(key)) return;
+        sent.push(key);
+        const title = '簡潔記事｜30 分鐘後提醒';
+        const body = [item.emoji || userDefaultEmoji || '', item.text || '未命名事項'].filter(Boolean).join(' ')
+          + '（' + item.time.slice(0, 2) + ':' + item.time.slice(2, 4) + '）';
+        navigator.serviceWorker.ready.then(registration => registration.showNotification(title, {
+          body,
+          icon: './icons/icon.svg',
+          badge: './icons/icon.svg',
+          tag: 'simple-diary-reminder-' + key,
+          data: { url: './' }
+        })).catch(error => console.warn('事項提醒發送失敗：', error));
+      });
+      if (sent.length > 500) sent = sent.slice(-500);
+      try { localStorage.setItem(REMINDER_SENT_KEY, JSON.stringify(sent)); } catch (error) {}
+    }
+    if ('Notification' in window && Notification.permission === 'granted') {
+      checkScheduledReminders();
+      window.setInterval(checkScheduledReminders, REMINDER_CHECK_INTERVAL);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) checkScheduledReminders();
+      });
+      window.addEventListener('focus', checkScheduledReminders);
+    }
 
     render();
 
