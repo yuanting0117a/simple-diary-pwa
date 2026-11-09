@@ -3044,7 +3044,7 @@
       if (sent.length > 500) sent = sent.slice(-500);
       try { localStorage.setItem(REMINDER_SENT_KEY, JSON.stringify(sent)); } catch (error) {}
     }
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if ('Notification' in window && 'serviceWorker' in navigator) {
       checkScheduledReminders();
       window.setInterval(checkScheduledReminders, REMINDER_CHECK_INTERVAL);
       document.addEventListener('visibilitychange', () => {
