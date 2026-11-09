@@ -2043,7 +2043,7 @@
     }
 
     function itemDateAt(mmdd, time = '00:00') {
-      if (!mmdd || !/^\\d{4}$/.test(mmdd)) return null;
+      if (!mmdd || !/^\d{4}$/.test(mmdd)) return null;
       const now = new Date();
       const month = Number(mmdd.slice(0, 2)) - 1;
       const day = Number(mmdd.slice(2, 4));
@@ -2051,7 +2051,7 @@
       let date = new Date(year, month, day);
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       if (date < today && today - date > 180 * 86400000) date = new Date(year + 1, month, day);
-      const parts = /^([0-2]\\d):([0-5]\\d)$/.exec(time || '00:00');
+      const parts = /^([0-2]\d):([0-5]\d)$/.exec(time || '00:00');
       date.setHours(parts ? Number(parts[1]) : 0, parts ? Number(parts[2]) : 0, 0, 0);
       return date;
     }
