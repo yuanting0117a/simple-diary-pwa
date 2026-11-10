@@ -1513,6 +1513,8 @@
     if(!Array.isArray(coursePeriods))coursePeriods=[];
     if(!coursePeriods.length&&!courses.length){const marks=['0810','0900','0910','1000','1010','1100','1110','1200','1310','1400','1410','1500','1510','1600','1610','1700'];coursePeriods=marks.slice(0,-1).map((t,i)=>({id:'period_'+t+'_'+marks[i+1],startTime:t,endTime:marks[i+1]}));localStorage.setItem(COURSE_PERIODS_KEY,JSON.stringify(coursePeriods))}
     if(!coursePeriods.length&&courses.length){const marks=[...new Set(courses.flatMap(c=>[c.startTime,c.endTime]))].sort();coursePeriods=marks.slice(0,-1).map((t,i)=>({id:'period_'+t+'_'+marks[i+1],startTime:t,endTime:marks[i+1]}));localStorage.setItem(COURSE_PERIODS_KEY,JSON.stringify(coursePeriods))}
+    // 確保第一節的起訖分隔線存在，避免舊版或不完整的本機時間設定讓「一」整列消失。
+    {const marks=courseTimeMarks();if(!marks.includes('0810')||!marks.includes('0900'))rebuildCoursePeriods([...marks,'0810','0900'])}
     courses.forEach(c=>{const p=coursePeriods.find(x=>x.startTime===c.startTime&&x.endTime===c.endTime);if(p)c.periodId=p.id});
     mergeAdjacentCourseRecords();
     function courseTimeMarks(){return [...new Set(coursePeriods.flatMap(p=>[p.startTime,p.endTime]))].sort() }
