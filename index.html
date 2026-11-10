@@ -1515,7 +1515,7 @@
       const merged=[],idMap=new Map();let changed=false;
       groups.forEach(items=>{
         items.sort((a,b)=>a.startTime.localeCompare(b.startTime));let group=[];
-        const flush=()=>{if(!group.length)return;const base=group[0],last=group[group.length-1];if(group.length>1){base.endTime=last.endTime;base.periodId='';base.createdAt=group.map(x=>x.createdAt||'').filter(Boolean).sort()[0]||base.createdAt;group.slice(1).forEach(x=>idMap.set(String(x.id),String(base.id)));changed=true}merged.push(base);group=[]};
+        const flush=()=>{if(!group.length)return;const base=group[0],last=group[group.length-1];if(group.length>1){base.endTime=last.endTime;base.periodId='';base.createdAt=group.map(x=>x.createdAt||'').filter(Boolean).sort()[0]||base.createdAt;group.forEach(x=>idMap.set(String(x.id),String(base.id)));changed=true}merged.push(base);group=[]};
         group.forEach(()=>{});
         items.forEach(c=>{if(group.length){const prev=group[group.length-1],gap=(Number(c.startTime.slice(0,2))*60+Number(c.startTime.slice(2)))-(Number(prev.endTime.slice(0,2))*60+Number(prev.endTime.slice(2)));if(gap<0||gap>15)flush()}group.push(c)});flush();
       });
@@ -1525,7 +1525,7 @@
       db.forEach(item=>{
         if(!item.courseReview||!idMap.has(String(item.courseReview.courseId))){other.push(item);return}
         const newId=idMap.get(String(item.courseReview.courseId)),date=item.courseReview.occurrenceDate,key=newId+':'+date;
-        item.courseReview.courseId=newId;item.courseReviewKey=key;item.groupId=key;
+        item.courseReview.courseId=newId;if(item.completed)item.courseReview.status='done';item.courseReviewKey=key;item.groupId=key;
         const existing=reviews.get(key);
         if(!existing||item.courseReview.status==='done'||item.completed)reviews.set(key,item);
       });
