@@ -2536,7 +2536,7 @@
       currentView = 'list'; switchTab('tab-list');
       openInputModalBtn.style.display = 'flex';
       listView.style.display = 'block'; timelineView.style.display = 'none';
-      calendarContainer.style.display = 'none'; todoBox.style.display = 'block';
+      calendarContainer.style.display = 'none'; document.getElementById('course-view').style.display = 'none'; todoBox.style.display = 'block';
       document.getElementById('overdue-box').style.display = document.getElementById('overdue-list').children.length ? 'block' : 'none';
     });
 
@@ -2545,7 +2545,7 @@
       currentView = 'cal'; switchTab('tab-cal');
       openInputModalBtn.style.display = 'flex';
       listView.style.display = 'none'; timelineView.style.display = 'none';
-      calendarContainer.style.display = 'block'; todoBox.style.display = 'block';
+      calendarContainer.style.display = 'block'; document.getElementById('course-view').style.display = 'none'; todoBox.style.display = 'block';
       document.getElementById('overdue-box').style.display = 'none';
       renderCalendar();
     });
@@ -2560,7 +2560,7 @@
       currentView = 'timeline'; switchTab('tab-timeline');
       openInputModalBtn.style.display = 'none';
       listView.style.display = 'none'; calendarContainer.style.display = 'none';
-      timelineView.style.display = 'block'; todoBox.style.display = 'none';
+      document.getElementById('course-view').style.display = 'none'; timelineView.style.display = 'block'; todoBox.style.display = 'none';
       document.getElementById('overdue-box').style.display = 'none';
       renderTimelineGantt();
     });
@@ -2626,8 +2626,11 @@
           cursor.setDate(cursor.getDate()+1);
         }
       });
-      if(changed){try{localStorage.setItem('LOCAL_DIARY',JSON.stringify(db))}catch(_){}}
+      if(changed){try{localStorage.setItem('LOCAL_DIARY',JSON.stringify(db))}catch(_){};if(typeof syncCloudReminders==='function')syncCloudReminders().catch(e=>console.warn('Course reminder sync failed:',e))}
+      return changed;
     }
+    setInterval(()=>{const changed=syncCourseReviewItems();if(changed)render();else if(currentView==='course')renderCourseView()},30000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden){const changed=syncCourseReviewItems();if(changed)render();else if(currentView==='course')renderCourseView()}});
     function courseState(c,now=new Date()){
       if(c.enabled===false)return{color:'#9ca3af',label:'不需複習',item:null,locked:true};
       const today=courseISO(now);
@@ -3903,6 +3906,8 @@
         const importedImportantDates = hasImportantDates
           ? parsed.importantDates.filter(item => item && typeof item.name === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && ['countdown', 'record'].includes(item.type))
           : null;
+        const hasCourses = !Array.isArray(parsed) && parsed && Array.isArray(parsed.courses);
+        const importedCourses = hasCourses ? parsed.courses.filter(item => item && item.id && typeof item.name === 'string' && Number.isInteger(Number(item.weekday)) && /^\d{4}$/.test(item.startTime || '') && /^\d{4}$/.test(item.endTime || '')) : null;
         const choice = prompt('選擇匯入方式：\n輸入 1：合併資料（保留現有記事、略過重複項目）\n輸入 2：取代資料（以備份內容完整取代）\n\n請輸入 1 或 2：', '1');
         if (choice !== '1' && choice !== '2') return;
         if (choice === '2' && !confirm('確定要取代這台裝置目前的全部記事嗎？建議先匯出目前資料。')) return;
@@ -3938,6 +3943,11 @@
             });
             localStorage.setItem(IMPORTANT_DATES_KEY, JSON.stringify(importantDates));
           }
+          if (importedCourses) {
+            const ids = new Set(courses.map(x => String(x.id)));
+            importedCourses.forEach(x => { if (!ids.has(String(x.id))) courses.push({ ...x }); });
+            saveCourses();
+          }
           localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
           localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji);
           localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList));
@@ -3946,6 +3956,7 @@
           alert('合併完成！新增 ' + addedCount + ' 筆記事' + (importedImportantDates ? '，紀念日資料也已合併' : '') + '，略過 ' + (importedDB.length - addedCount) + ' 筆重複記事。');
         } else {
           db = importedDB;
+          if (importedCourses) { courses = importedCourses.map(x => ({ ...x })); saveCourses(); }
           if (importedImportantDates) {
             importantDates = importedImportantDates.map(item => ({ ...item }));
             localStorage.setItem(IMPORTANT_DATES_KEY, JSON.stringify(importantDates));
