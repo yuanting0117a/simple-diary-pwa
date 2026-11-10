@@ -2635,7 +2635,7 @@
       if(c.enabled===false)return{color:'#9ca3af',label:'不需複習',item:null,locked:true};
       const today=courseISO(now);
       if(now.getDay()===Number(c.weekday)&&now>=courseAt(today,c.startTime)&&now<courseAt(today,c.endTime))return{color:'#eab308',label:'上課中',item:null,locked:true};
-      const item=db.filter(x=>x.courseReview&&String(x.courseReview.courseId)===String(c.id)).sort((a,b)=>b.courseReview.occurrenceDate.localeCompare(a.courseReview.occurrenceDate))[0]||null;
+      const baseline=courseISO(new Date(c.createdAt||0));const item=db.filter(x=>x.courseReview&&String(x.courseReview.courseId)===String(c.id)&&x.courseReview.occurrenceDate>=baseline).sort((a,b)=>b.courseReview.occurrenceDate.localeCompare(a.courseReview.occurrenceDate))[0]||null;
       const done=item&&item.courseReview.status==='done';
       return{color:done?'#22c55e':'#ef4444',label:done?'已複習':'未複習',item,locked:false};
     }
