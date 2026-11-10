@@ -2107,6 +2107,45 @@
           if (deadline) add(item, endKey, 'deadline1h', new Date(deadline.getTime() - 3600000), deadline);
         }
       });
+
+      // 倒數紀念日：前一天與當天早上 06:00 各提醒一次。
+      // 只處理倒數日；經過天數紀錄不會產生通知。
+      if (Array.isArray(importantDates)) {
+        importantDates.forEach(item => {
+          if (!item || item.type !== 'countdown' || !item.date) return;
+          const info = getImportantDateInfo(item);
+          if (!info || info.delta < 0) return;
+
+          const [year, month, day] = info.target.split('-').map(Number);
+          const targetDate = new Date(year, month - 1, day);
+          const targetKey = year + String(month).padStart(2, '0') + String(day).padStart(2, '0');
+          const startsAt = targetDate.getTime();
+          const baseId = String(item.id || item.name || 'important-date');
+
+          [
+            {
+              kind: 'day-before',
+              at: new Date(year, month - 1, day - 1, 6, 0),
+              body: '明天就是「' + item.name + '」了！'
+            },
+            {
+              kind: 'day-of',
+              at: new Date(year, month - 1, day, 6, 0),
+              body: '今天是「' + item.name + '」！'
+            }
+          ].forEach(reminder => {
+            if (!reminder.at || reminder.at.getTime() <= now || result.length >= 300) return;
+            result.push({
+              id: ['important', baseId, targetKey, reminder.kind].join(':').slice(0, 180),
+              title: '🎉 ' + item.name,
+              body: reminder.body,
+              reminderAt: reminder.at.getTime(),
+              startsAt
+            });
+          });
+        });
+      }
+
       return result.slice(0, 300);
     }
 
@@ -4224,6 +4263,7 @@
     let importantDates = loadImportantDates();
     function saveImportantDates() {
       localStorage.setItem(IMPORTANT_DATES_KEY, JSON.stringify(importantDates));
+      syncCloudReminders().catch(error => console.warn("Important-date reminder sync failed:", error));
     }
     function dateUtcDay(dateString) {
       const parts = dateString.split('-').map(Number);
