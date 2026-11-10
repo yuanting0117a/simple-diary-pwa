@@ -2686,7 +2686,7 @@
       const norm=v=>/^\d{3}$/.test(v)?'0'+v:v,start=norm(document.getElementById('course-start-input').value.trim()),end=norm(document.getElementById('course-end-input').value.trim());
       if(!name||!/^\d{4}$/.test(start)||!/^\d{4}$/.test(end)||start>=end||Number(start.slice(0,2))>23||Number(start.slice(2))>59||Number(end.slice(0,2))>23||Number(end.slice(2))>59){alert('請填寫課程名稱，以及正確的開始、結束時間。');return}
       const id=document.getElementById('course-edit-id').value,enabled=document.getElementById('course-enabled-input').checked;
-      if(id){const c=courses.find(x=>String(x.id)===String(id));if(c){c.name=name;c.weekday=weekday;c.startTime=start;c.endTime=end;c.enabled=enabled}}
+      if(id){const c=courses.find(x=>String(x.id)===String(id));if(c){c.name=name;c.weekday=weekday;c.startTime=start;c.endTime=end;c.enabled=enabled;c.createdAt=new Date().toISOString()}}
       else courses.push({id:'course_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),name,weekday,startTime:start,endTime:end,enabled,createdAt:new Date().toISOString()});
       saveCourses();renderCourseManager();renderCourseView();resetCourseForm();
     });
