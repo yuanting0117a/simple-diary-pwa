@@ -1420,7 +1420,7 @@
   </div></div>
   <div class="modal-overlay" id="course-manage-overlay"><div class="modal" style="max-width:540px;max-height:88vh;overflow-y:auto;">
 <div class="modal-title">課表設定</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><strong>每日時間分隔線</strong><button type="button" class="btn" id="course-add-period">＋ 新增時間</button></div>
-<div id="course-period-editor"></div><div style="font-size:.72rem;color:var(--text-sub);margin:6px 0 14px;">設定每日的時間刻度（例如 0810、0900、0910、1000、1010），全週共用；課程格會依相鄰時間點排列。</div>
+<div id="course-period-editor"></div><div style="font-size:.72rem;color:var(--text-sub);margin:6px 0 14px;">設定每日時間刻度（例如 0810、0900、0910、1000、1010）。10–15 分鐘的區間會自動視為下課；同一課程跨節並含下課時間會合併顯示。</div>
 <div style="border-top:1px solid var(--border-color);padding-top:12px;"><strong style="display:block;margin-bottom:8px;">新增課程</strong><input type="text" id="course-name-input" placeholder="課程名稱" style="width:100%;margin-bottom:10px;">
 <div style="font-size:.82rem;font-weight:700;margin-bottom:6px;">點選所有上課格子（可複選）</div><div id="course-selection-grid" class="course-week-grid"></div>
 <label style="display:flex;align-items:center;gap:8px;font-size:.85rem;margin:10px 0;"><input type="checkbox" id="course-enabled-input" checked> 自動建立課後事項</label><button type="button" class="btn btn-primary" id="course-save-btn" style="width:100%;">新增課程到所選格子</button></div>
@@ -1508,7 +1508,36 @@
     if(!Array.isArray(coursePeriods))coursePeriods=[];
     if(!coursePeriods.length&&courses.length){const marks=[...new Set(courses.flatMap(c=>[c.startTime,c.endTime]))].sort();coursePeriods=marks.slice(0,-1).map((t,i)=>({id:'period_'+t+'_'+marks[i+1],startTime:t,endTime:marks[i+1]}));localStorage.setItem(COURSE_PERIODS_KEY,JSON.stringify(coursePeriods))}
     courses.forEach(c=>{const p=coursePeriods.find(x=>x.startTime===c.startTime&&x.endTime===c.endTime);if(p)c.periodId=p.id});
+    mergeAdjacentCourseRecords();
     function courseTimeMarks(){return [...new Set(coursePeriods.flatMap(p=>[p.startTime,p.endTime]))].sort() }
+    function mergeAdjacentCourseRecords(){
+      const groups=new Map();courses.forEach(c=>{const key=[c.weekday,c.name,c.enabled===false?'off':'on'].join('|');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(c)});
+      const merged=[],idMap=new Map();let changed=false;
+      groups.forEach(items=>{
+        items.sort((a,b)=>a.startTime.localeCompare(b.startTime));let group=[];
+        const flush=()=>{if(!group.length)return;const base=group[0],last=group[group.length-1];if(group.length>1){base.endTime=last.endTime;base.periodId='';base.createdAt=group.map(x=>x.createdAt||'').filter(Boolean).sort()[0]||base.createdAt;group.slice(1).forEach(x=>idMap.set(String(x.id),String(base.id)));changed=true}merged.push(base);group=[]};
+        group.forEach(()=>{});
+        items.forEach(c=>{if(group.length){const prev=group[group.length-1],gap=(Number(c.startTime.slice(0,2))*60+Number(c.startTime.slice(2)))-(Number(prev.endTime.slice(0,2))*60+Number(prev.endTime.slice(2)));if(gap<0||gap>15)flush()}group.push(c)});flush();
+      });
+      if(!changed)return;
+      courses=merged;
+      const reviews=new Map(),other=[];
+      db.forEach(item=>{
+        if(!item.courseReview||!idMap.has(String(item.courseReview.courseId))){other.push(item);return}
+        const newId=idMap.get(String(item.courseReview.courseId)),date=item.courseReview.occurrenceDate,key=newId+':'+date;
+        item.courseReview.courseId=newId;item.courseReviewKey=key;item.groupId=key;
+        const existing=reviews.get(key);
+        if(!existing||item.courseReview.status==='done'||item.completed)reviews.set(key,item);
+      });
+      const chosen=[...reviews.values()];
+      chosen.forEach(item=>{const c=courses.find(x=>String(x.id)===String(item.courseReview.courseId));if(c){item.time=c.endTime;item.endTime=c.startTime;item.text=c.name;item.completed=item.courseReview.status==='done'}});
+      const keptKeys=new Set(chosen.map(x=>x.courseReviewKey));
+      const duplicates=new Set();
+      db.forEach(item=>{if(item.courseReview&&keptKeys.has(item.courseReviewKey)&&!chosen.includes(item))duplicates.add(item)});
+      db=other.concat(chosen,...[]);
+      localStorage.setItem('LOCAL_DIARY',JSON.stringify(db));saveCourses();
+    }
+
     function rebuildCoursePeriods(marks){marks=[...new Set(marks)].filter(x=>/^\d{4}$/.test(x)).sort();coursePeriods=marks.slice(0,-1).map((t,i)=>({id:'period_'+t+'_'+marks[i+1],startTime:t,endTime:marks[i+1]}));courses.forEach(c=>{const p=coursePeriods.find(x=>x.startTime===c.startTime&&x.endTime===c.endTime);c.periodId=p?p.id:''});saveCoursePeriods();}
 
     let userDefaultEmoji = localStorage.getItem('DEFAULT_EMOJI') || '📌';
