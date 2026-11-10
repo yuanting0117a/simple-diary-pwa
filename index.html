@@ -3646,6 +3646,7 @@
         version: 1,
         exportedAt: new Date().toISOString(),
         data: db,
+        importantDates: importantDates,
         defaultEmoji: userDefaultEmoji,
         emojiPresets: emojiPresetList
       };
@@ -3738,6 +3739,10 @@
         if (!Array.isArray(importedDB) || importedDB.some(item => !item || typeof item !== 'object' || typeof item.text !== 'string')) {
           throw new Error('備份格式不正確');
         }
+        const hasImportantDates = !Array.isArray(parsed) && parsed && Array.isArray(parsed.importantDates);
+        const importedImportantDates = hasImportantDates
+          ? parsed.importantDates.filter(item => item && typeof item.name === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(item.date) && ['countdown', 'elapsed'].includes(item.type))
+          : null;
         const choice = prompt('選擇匯入方式：\n輸入 1：合併資料（保留現有記事、略過重複項目）\n輸入 2：取代資料（以備份內容完整取代）\n\n請輸入 1 或 2：', '1');
         if (choice !== '1' && choice !== '2') return;
         if (choice === '2' && !confirm('確定要取代這台裝置目前的全部記事嗎？建議先匯出目前資料。')) return;
@@ -3761,14 +3766,30 @@
               emojiPresetList = Array.from(new Set([...emojiPresetList, ...parsed.emojiPresets.filter(x => typeof x === 'string')])).slice(0, 15);
             }
           }
+          if (importedImportantDates) {
+            const dateKey = item => [item.name, item.date, item.type, item.repeat ? '1' : '0'].join('|');
+            const existingDateKeys = new Set(importantDates.map(dateKey));
+            importedImportantDates.forEach(item => {
+              const key = dateKey(item);
+              if (!existingDateKeys.has(key)) {
+                importantDates.push({ ...item });
+                existingDateKeys.add(key);
+              }
+            });
+            localStorage.setItem(IMPORTANT_DATES_KEY, JSON.stringify(importantDates));
+          }
           localStorage.setItem('LOCAL_DIARY', JSON.stringify(db));
           localStorage.setItem('DEFAULT_EMOJI', userDefaultEmoji);
           localStorage.setItem('EMOJI_PRESETS', JSON.stringify(emojiPresetList));
           settingsModalOverlay.classList.remove('show');
           saveAndRender();
-          alert('合併完成！新增 ' + addedCount + ' 筆，略過 ' + (importedDB.length - addedCount) + ' 筆重複記事。');
+          alert('合併完成！新增 ' + addedCount + ' 筆記事' + (importedImportantDates ? '，紀念日資料也已合併' : '') + '，略過 ' + (importedDB.length - addedCount) + ' 筆重複記事。');
         } else {
           db = importedDB;
+          if (importedImportantDates) {
+            importantDates = importedImportantDates.map(item => ({ ...item }));
+            localStorage.setItem(IMPORTANT_DATES_KEY, JSON.stringify(importantDates));
+          }
           if (!Array.isArray(parsed) && parsed) {
             if (typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()) userDefaultEmoji = parsed.defaultEmoji;
             if (Array.isArray(parsed.emojiPresets)) emojiPresetList = Array.from(new Set(parsed.emojiPresets.filter(x => typeof x === 'string'))).slice(0, 15);
