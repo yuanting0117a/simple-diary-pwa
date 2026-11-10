@@ -4261,6 +4261,8 @@
       } catch (_) { return []; }
     }
     let importantDates = loadImportantDates();
+    // 載入既有紀念日後立即同步，讓已啟用通知的裝置也能收到新加入的提醒。
+    syncCloudReminders().catch(error => console.warn("Important-date reminder sync failed:", error));
     function saveImportantDates() {
       localStorage.setItem(IMPORTANT_DATES_KEY, JSON.stringify(importantDates));
       syncCloudReminders().catch(error => console.warn("Important-date reminder sync failed:", error));
