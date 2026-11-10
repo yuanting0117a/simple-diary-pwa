@@ -121,6 +121,8 @@
     .course-week-cell{min-width:0;box-sizing:border-box}
     .course-class-chip{grid-column:1;z-index:1;min-height:0;height:100%;box-sizing:border-box;justify-content:center}
     .course-break-cell{background:#fafafa!important;color:var(--text-sub);font-size:.66rem;display:flex;align-items:center;justify-content:center}
+    .course-lunch-cell{background:#fff7e8!important;color:#9a6b22;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;border-color:#f1dfbd}
+    .course-lunch-label{color:#9a6b22}
     .course-week-end-cell{min-height:26px;height:26px;padding:0;border-style:dashed;background:#fafafa}
     .course-break-note{font-size:.62rem;color:var(--text-sub);font-weight:400}
 
@@ -901,7 +903,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.43</div>
+      <div class="app-version">v56.44</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1506,10 +1508,12 @@
     const COURSE_PERIODS_KEY='SIMPLE_DIARY_COURSE_PERIODS_V1';let coursePeriods=[],courseSelectedCells=new Set();
     try{coursePeriods=JSON.parse(localStorage.getItem(COURSE_PERIODS_KEY)||'[]')}catch(_){}
     if(!Array.isArray(coursePeriods))coursePeriods=[];
+    if(!coursePeriods.length&&!courses.length){const marks=['0810','0900','0910','1000','1010','1100','1110','1200','1310','1400','1410','1500','1510','1600','1610','1700'];coursePeriods=marks.slice(0,-1).map((t,i)=>({id:'period_'+t+'_'+marks[i+1],startTime:t,endTime:marks[i+1]}));localStorage.setItem(COURSE_PERIODS_KEY,JSON.stringify(coursePeriods))}
     if(!coursePeriods.length&&courses.length){const marks=[...new Set(courses.flatMap(c=>[c.startTime,c.endTime]))].sort();coursePeriods=marks.slice(0,-1).map((t,i)=>({id:'period_'+t+'_'+marks[i+1],startTime:t,endTime:marks[i+1]}));localStorage.setItem(COURSE_PERIODS_KEY,JSON.stringify(coursePeriods))}
     courses.forEach(c=>{const p=coursePeriods.find(x=>x.startTime===c.startTime&&x.endTime===c.endTime);if(p)c.periodId=p.id});
     mergeAdjacentCourseRecords();
     function courseTimeMarks(){return [...new Set(coursePeriods.flatMap(p=>[p.startTime,p.endTime]))].sort() }
+    function coursePeriodDisplayLabel(start,end){if(start==='1200'&&end==='1310')return '午餐';const slots=[['0810','0900','一'],['0910','1000','二'],['1010','1100','三'],['1110','1200','四'],['1310','1400','五'],['1410','1500','六'],['1510','1600','七'],['1610','1700','八']];const slot=slots.find(x=>x[0]===start&&x[1]===end);return slot?slot[2]:''}
     function mergeAdjacentCourseRecords(){
       const groups=new Map();courses.forEach(c=>{const key=[c.weekday,c.name,c.enabled===false?'off':'on'].join('|');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(c)});
       const merged=[],idMap=new Map();let changed=false;
@@ -2711,13 +2715,14 @@
       if(!marks.length){const e=document.createElement('div');e.style.cssText='grid-column:1/-1;text-align:center;color:var(--text-sub);padding:24px 8px';e.textContent='尚未設定時間分隔線，請到「管理課表」設定。';grid.appendChild(e);return}
       const rowTemplate=marks.slice(0,-1).map(()=> 'minmax(62px,auto)').concat('26px').join(' ');
       const axis=document.createElement('div');axis.className='course-axis-column';axis.style.gridTemplateRows=rowTemplate;
-      marks.forEach(t=>{const l=document.createElement('div');l.className='course-time-label';l.textContent=courses.some(c=>c.startTime===t||c.endTime===t)?t.slice(0,2)+':'+t.slice(2):'';axis.appendChild(l)});
+      marks.forEach((t,i)=>{const l=document.createElement('div');l.className='course-time-label';l.textContent=i<marks.length-1?coursePeriodDisplayLabel(t,marks[i+1]):'';if(l.textContent==='午餐')l.classList.add('course-lunch-label');axis.appendChild(l)});
       grid.appendChild(axis);
       for(let di=0;di<7;di++){
         const weekday=(di+1)%7,col=document.createElement('div');col.className='course-day-column';col.style.gridTemplateRows=rowTemplate;
         for(let i=0;i<marks.length;i++){
           const cell=document.createElement('div');cell.className='course-week-cell';
           if(i===marks.length-1){cell.classList.add('course-week-end-cell');col.appendChild(cell);continue}
+          if(marks[i]==='1200'&&marks[i+1]==='1310'){cell.classList.add('course-lunch-cell');cell.textContent='午餐'}
           col.appendChild(cell);
         }
         courses.filter(c=>Number(c.weekday)===weekday).forEach(c=>{
@@ -2736,14 +2741,15 @@
       const days=['一','二','三','四','五','六','日'],marks=courseTimeMarks(),periods=[...coursePeriods].sort((a,b)=>a.startTime.localeCompare(b.startTime));
       const corner=document.createElement('div');corner.className='course-week-head';corner.textContent='時間';grid.appendChild(corner);days.forEach(d=>{const h=document.createElement('div');h.className='course-week-head';h.textContent=d;grid.appendChild(h)});
       marks.forEach((mark,i)=>{
-        const label=document.createElement('div');label.className='course-time-label';label.textContent=mark.slice(0,2)+':'+mark.slice(2);grid.appendChild(label);
+        const label=document.createElement('div');label.className='course-time-label';label.textContent=i<marks.length-1?coursePeriodDisplayLabel(mark,marks[i+1]):'';if(label.textContent==='午餐')label.classList.add('course-lunch-label');grid.appendChild(label);
         for(let di=0;di<7;di++){
           const weekday=(di+1)%7;
           if(i===marks.length-1){const end=document.createElement('div');end.className='course-week-cell course-week-end-cell';end.textContent='';grid.appendChild(end);continue}
           const p=periods.find(x=>x.startTime===mark&&x.endTime===marks[i+1]),mins=(Number(marks[i+1].slice(0,2))*60+Number(marks[i+1].slice(2)))-(Number(mark.slice(0,2))*60+Number(mark.slice(2)));
           const key=p?weekday+'|'+p.id:'',btn=document.createElement('button');btn.type='button';btn.className='course-week-cell';
-          if(mins>0&&mins<=15){btn.disabled=true;btn.textContent='下課';btn.classList.add('course-break-cell')}
-          else if(!p){btn.disabled=true;btn.textContent='—'}
+          if(mark==='1200'&&marks[i+1]==='1310'){btn.disabled=true;btn.textContent='午餐';btn.classList.add('course-lunch-cell')}
+          else if(mins>0&&mins<=15){btn.disabled=true;btn.textContent='';btn.classList.add('course-break-cell')}
+          else if(!p){btn.disabled=true;btn.textContent=''}
           else{btn.style.cssText='cursor:pointer;justify-content:center;align-items:center;background:'+(courseSelectedCells.has(key)?'#e5f0ff':'#fff');btn.textContent=courseSelectedCells.has(key)?'✓':'＋';btn.addEventListener('click',()=>{if(courseSelectedCells.has(key))courseSelectedCells.delete(key);else courseSelectedCells.add(key);renderCourseSelection()})}
           grid.appendChild(btn);
         }
