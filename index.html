@@ -1531,10 +1531,7 @@
       });
       const chosen=[...reviews.values()];
       chosen.forEach(item=>{const c=courses.find(x=>String(x.id)===String(item.courseReview.courseId));if(c){item.time=c.endTime;item.endTime=c.startTime;item.text=c.name;item.completed=item.courseReview.status==='done'}});
-      const keptKeys=new Set(chosen.map(x=>x.courseReviewKey));
-      const duplicates=new Set();
-      db.forEach(item=>{if(item.courseReview&&keptKeys.has(item.courseReviewKey)&&!chosen.includes(item))duplicates.add(item)});
-      db=other.concat(chosen,...[]);
+      db=other.concat(chosen);
       localStorage.setItem('LOCAL_DIARY',JSON.stringify(db));saveCourses();
     }
 
