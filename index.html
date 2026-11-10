@@ -111,10 +111,23 @@
       cursor: pointer;
     }
 
-    .view-btn.active {
-      background: var(--card-bg);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
+    .view-btn.active { background: var(--card-bg); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .course-view-wrap{margin:12px 10px;background:#fff;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.04);overflow-x:auto}
+    .course-week-grid{display:grid;grid-template-columns:54px repeat(7,minmax(64px,1fr));min-width:510px;gap:4px}
+    .course-week-head,.course-time-label{padding:8px 2px;text-align:center;font-size:.72rem;color:var(--text-sub);font-weight:700}
+    .course-week-cell{min-height:62px;border:1px solid #edf0f4;border-radius:8px;padding:4px;display:flex;flex-direction:column;gap:4px}
+    .course-class-chip{border:1px solid #dce7f5;background:#f5f9ff;border-radius:7px;padding:5px 3px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:4px}
+    .course-class-top{display:flex;align-items:center;gap:5px;font-weight:700;min-width:0}
+    .course-light{width:10px;height:10px;min-width:10px;border-radius:50%;display:inline-block}
+    .course-status-btn{width:100%;padding:4px 2px;border:1px solid var(--border-color);border-radius:6px;background:#fff;font-size:.66rem;cursor:pointer}
+    .course-status-btn:disabled{opacity:.55;cursor:not-allowed}
+    .course-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+    .course-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:.72rem;color:var(--text-sub);margin-top:10px}
+    .course-legend span{display:flex;align-items:center;gap:4px}
+    .course-manage-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f5}
+    .course-manage-info{flex:1;min-width:0}
+    .course-manage-actions{display:flex;gap:5px}
+    .course-review-status-inline{border:1px solid var(--border-color);background:#fff;border-radius:6px;padding:3px 7px;font-size:.7rem;margin-left:6px}
 
     .fab-btn.editing-done {
       width: 68px;
@@ -880,7 +893,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.38</div>
+      <div class="app-version">v56.39</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -891,6 +904,7 @@
       <div class="view-btn active" id="tab-list">條列視圖</div>
       <div class="view-btn" id="tab-cal">月曆視圖</div>
       <div class="view-btn" id="tab-timeline">時間軸</div>
+      <div class="view-btn" id="tab-course">課程</div>
     </div>
   </header>
 
@@ -1391,6 +1405,21 @@
 
   <div id="list-view"></div>
 
+  <div id="course-view" style="display:none;"><div class="course-view-wrap">
+    <div class="course-toolbar"><strong>每週課表／複習狀態</strong><button type="button" class="btn btn-primary" id="manage-courses-btn">管理課表</button></div>
+    <div id="course-week-grid" class="course-week-grid"></div>
+    <div class="course-legend"><span><i class="course-light" style="background:#ef4444"></i>未複習</span><span><i class="course-light" style="background:#22c55e"></i>已複習</span><span><i class="course-light" style="background:#eab308"></i>上課中</span><span><i class="course-light" style="background:#9ca3af"></i>未啟用</span></div>
+  </div></div>
+  <div class="modal-overlay" id="course-manage-overlay"><div class="modal" style="max-width:420px;">
+    <div class="modal-title">課表設定</div><div id="course-manage-list"></div>
+    <div style="border-top:1px solid var(--border-color);padding-top:12px;margin-top:8px;"><strong id="course-form-title" style="display:block;margin-bottom:8px;">新增課程</strong>
+      <input type="hidden" id="course-edit-id"><input type="text" id="course-name-input" placeholder="課程名稱" style="width:100%;margin-bottom:8px;">
+      <div class="input-row"><select id="course-weekday-input" style="flex:1;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:#fafafa;"><option value="1">星期一</option><option value="2">星期二</option><option value="3">星期三</option><option value="4">星期四</option><option value="5">星期五</option><option value="6">星期六</option><option value="0">星期日</option></select><input type="text" id="course-start-input" class="input-time" placeholder="開始" maxlength="4"><input type="text" id="course-end-input" class="input-time" placeholder="結束" maxlength="4"></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.85rem;margin:8px 0;"><input type="checkbox" id="course-enabled-input" checked> 自動建立課後事項</label>
+      <div class="input-btns"><button type="button" class="btn btn-primary" id="course-save-btn" style="flex:1;">儲存課程</button><button type="button" class="btn" id="course-form-reset" style="flex:1;">清空</button></div>
+    </div><button type="button" class="btn" id="course-manage-close" style="width:100%;margin-top:10px;">關閉</button>
+  </div></div>
+  <div class="modal-overlay" id="course-review-overlay"><div class="modal" style="max-width:320px;"><div class="modal-title" id="course-review-title">複習狀態</div><div style="display:flex;flex-direction:column;gap:8px;"><button type="button" class="btn btn-primary" id="course-review-done">✓ 複習完成</button><button type="button" class="btn" id="course-review-pending">○ 尚未完成</button></div><button type="button" class="btn" id="course-review-close" style="width:100%;margin-top:10px;">關閉</button></div></div>
   <div id="timeline-view" style="display: none;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 16px 8px 16px;">
       <div style="display:flex; align-items:center; gap:8px;">
@@ -1465,6 +1494,9 @@
     }
 
     let db = loadDB();
+    const COURSE_SCHEDULE_KEY='SIMPLE_DIARY_COURSE_SCHEDULE_V1';
+    function loadCourses(){try{const a=JSON.parse(localStorage.getItem(COURSE_SCHEDULE_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&x.id&&typeof x.name==='string'&&Number.isInteger(Number(x.weekday))&&/^\d{4}$/.test(x.startTime||'')&&/^\d{4}$/.test(x.endTime||'')):[]}catch(_){return[]}}
+    let courses=loadCourses(),activeCourseReviewKey=null;
     let userDefaultEmoji = localStorage.getItem('DEFAULT_EMOJI') || '📌';
     let emojiPresetList = JSON.parse(localStorage.getItem('EMOJI_PRESETS') || '["📌", "📝", "⭐", "🎯", "🔥", "💡", "☕", "✅", "📖"]');
     
@@ -2518,6 +2550,11 @@
       renderCalendar();
     });
 
+    document.getElementById('tab-course').addEventListener('click', e => {
+      e.preventDefault();currentView='course';switchTab('tab-course');openInputModalBtn.style.display='none';
+      listView.style.display='none';timelineView.style.display='none';calendarContainer.style.display='none';
+      document.getElementById('course-view').style.display='block';todoBox.style.display='none';document.getElementById('overdue-box').style.display='none';renderCourseView();
+    });
     document.getElementById('tab-timeline').addEventListener('click', (e) => {
       e.preventDefault();
       currentView = 'timeline'; switchTab('tab-timeline');
@@ -2569,7 +2606,90 @@
       return list;
     }
 
+    function saveCourses(){localStorage.setItem(COURSE_SCHEDULE_KEY,JSON.stringify(courses))}
+    function courseISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+    function courseMMDD(d){return String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')}
+    function courseAt(iso,hhmm){const [y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d,Number(hhmm.slice(0,2)),Number(hhmm.slice(2)))}
+    function syncCourseReviewItems(){
+      const now=new Date();let changed=false;
+      courses.filter(c=>c.enabled!==false).forEach(c=>{
+        const createdAt=new Date(c.createdAt||now),cursor=new Date(createdAt);cursor.setHours(0,0,0,0);let guard=0;
+        while(cursor<=now&&guard++<400){
+          if(cursor.getDay()===Number(c.weekday)){
+            const iso=courseISO(cursor),classEnd=courseAt(iso,c.endTime),key=String(c.id)+':'+iso;
+            if(classEnd<=now&&classEnd>createdAt&&!db.some(x=>x.courseReviewKey===key)){
+              const next=new Date(cursor);next.setDate(next.getDate()+7);
+              db.push({id:'course_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),emoji:'📚',date:courseMMDD(cursor),time:c.endTime,endDate:courseMMDD(next),endTime:c.startTime,text:c.name,completed:false,repeat:null,taskType:'pick-one',groupId:key,courseReviewKey:key,courseReview:{courseId:c.id,occurrenceDate:iso,status:'pending'}});
+              changed=true;
+            }
+          }
+          cursor.setDate(cursor.getDate()+1);
+        }
+      });
+      if(changed){try{localStorage.setItem('LOCAL_DIARY',JSON.stringify(db))}catch(_){}}
+    }
+    function courseState(c,now=new Date()){
+      if(c.enabled===false)return{color:'#9ca3af',label:'不需複習',item:null,locked:true};
+      const today=courseISO(now);
+      if(now.getDay()===Number(c.weekday)&&now>=courseAt(today,c.startTime)&&now<courseAt(today,c.endTime))return{color:'#eab308',label:'上課中',item:null,locked:true};
+      const item=db.filter(x=>x.courseReview&&String(x.courseReview.courseId)===String(c.id)).sort((a,b)=>b.courseReview.occurrenceDate.localeCompare(a.courseReview.occurrenceDate))[0]||null;
+      const done=item&&item.courseReview.status==='done';
+      return{color:done?'#22c55e':'#ef4444',label:done?'已複習':'未複習',item,locked:false};
+    }
+    function renderCourseView(){
+      syncCourseReviewItems();const grid=document.getElementById('course-week-grid');if(!grid)return;grid.innerHTML='';
+      const days=['一','二','三','四','五','六','日'],times=[...new Set(courses.map(c=>c.startTime))].sort();
+      const corner=document.createElement('div');corner.className='course-week-head';corner.textContent='時間';grid.appendChild(corner);
+      days.forEach(d=>{const x=document.createElement('div');x.className='course-week-head';x.textContent=d;grid.appendChild(x)});
+      if(!times.length){const e=document.createElement('div');e.style.cssText='grid-column:1/-1;text-align:center;color:var(--text-sub);padding:24px 8px';e.textContent='尚未建立課表，點「管理課表」開始設定。';grid.appendChild(e);return}
+      times.forEach(t=>{
+        const l=document.createElement('div');l.className='course-time-label';l.textContent=t.slice(0,2)+':'+t.slice(2);grid.appendChild(l);
+        for(let di=0;di<7;di++){
+          const weekday=(di+1)%7,cell=document.createElement('div');cell.className='course-week-cell';
+          courses.filter(c=>Number(c.weekday)===weekday&&c.startTime===t).forEach(c=>{
+            const st=courseState(c),chip=document.createElement('div');chip.className='course-class-chip';
+            const top=document.createElement('div');top.className='course-class-top';const dot=document.createElement('i');dot.className='course-light';dot.style.background=st.color;
+            const name=document.createElement('span');name.textContent=c.name;top.append(dot,name);chip.appendChild(top);
+            const b=document.createElement('button');b.type='button';b.className='course-status-btn';b.textContent=st.label==='上課中'?'上課中':st.label==='不需複習'?'已關閉':'狀態';b.disabled=st.locked||!st.item;b.addEventListener('click',()=>openCourseReview(st.item,c));chip.appendChild(b);cell.appendChild(chip);
+          });grid.appendChild(cell);
+        }
+      });
+    }
+    function openCourseReview(item,c){if(!item||!item.courseReview||courseState(c).label==='上課中')return;activeCourseReviewKey=item.courseReviewKey;document.getElementById('course-review-title').textContent=c.name+'｜複習狀態';document.getElementById('course-review-overlay').classList.add('show')}
+    function openCourseReviewByKey(key){const item=db.find(x=>x.courseReviewKey===decodeURIComponent(key||''));if(!item)return;const c=courses.find(x=>String(x.id)===String(item.courseReview.courseId));if(c)openCourseReview(item,c)}
+    function setCourseReviewStatus(status){const item=db.find(x=>x.courseReviewKey===activeCourseReviewKey);if(!item)return;item.courseReview.status=status;localStorage.setItem('LOCAL_DIARY',JSON.stringify(db));document.getElementById('course-review-overlay').classList.remove('show');activeCourseReviewKey=null;render();if(currentView==='course')renderCourseView();syncCloudReminders().catch(e=>console.warn(e))}
+    function resetCourseForm(){document.getElementById('course-edit-id').value='';document.getElementById('course-form-title').textContent='新增課程';document.getElementById('course-name-input').value='';document.getElementById('course-weekday-input').value='1';document.getElementById('course-start-input').value='';document.getElementById('course-end-input').value='';document.getElementById('course-enabled-input').checked=true}
+    function renderCourseManager(){
+      const list=document.getElementById('course-manage-list');list.innerHTML='';
+      courses.forEach(c=>{
+        const row=document.createElement('div');row.className='course-manage-row';const info=document.createElement('div');info.className='course-manage-info';
+        const title=document.createElement('strong');title.textContent=c.name;const meta=document.createElement('div');meta.style.cssText='font-size:.72rem;color:var(--text-sub);margin-top:3px';meta.textContent='星期'+['日','一','二','三','四','五','六'][c.weekday]+' · '+c.startTime+'–'+c.endTime;info.append(title,meta);
+        const actions=document.createElement('div');actions.className='course-manage-actions';
+        const toggle=document.createElement('button');toggle.className='btn';toggle.textContent=c.enabled===false?'已關閉':'已啟用';toggle.onclick=()=>{const was=c.enabled!==false;c.enabled=!was;if(c.enabled)c.createdAt=new Date().toISOString();saveCourses();renderCourseManager();renderCourseView()};
+        const edit=document.createElement('button');edit.className='btn';edit.textContent='編輯';edit.onclick=()=>{document.getElementById('course-edit-id').value=c.id;document.getElementById('course-form-title').textContent='編輯課程';document.getElementById('course-name-input').value=c.name;document.getElementById('course-weekday-input').value=c.weekday;document.getElementById('course-start-input').value=c.startTime;document.getElementById('course-end-input').value=c.endTime;document.getElementById('course-enabled-input').checked=c.enabled!==false};
+        const del=document.createElement('button');del.className='btn btn-danger';del.textContent='刪除';del.onclick=()=>{if(!confirm('刪除這堂課？既有課後事項會保留。'))return;courses=courses.filter(x=>x.id!==c.id);saveCourses();renderCourseManager();renderCourseView()};
+        actions.append(toggle,edit,del);row.append(info,actions);list.appendChild(row);
+      });
+    }
+    function openCourseManager(){renderCourseManager();resetCourseForm();document.getElementById('course-manage-overlay').classList.add('show')}
+    document.getElementById('manage-courses-btn').addEventListener('click',openCourseManager);
+    document.getElementById('course-manage-close').addEventListener('click',()=>document.getElementById('course-manage-overlay').classList.remove('show'));
+    document.getElementById('course-review-close').addEventListener('click',()=>document.getElementById('course-review-overlay').classList.remove('show'));
+    document.getElementById('course-review-done').addEventListener('click',()=>setCourseReviewStatus('done'));
+    document.getElementById('course-review-pending').addEventListener('click',()=>setCourseReviewStatus('pending'));
+    document.getElementById('course-form-reset').addEventListener('click',resetCourseForm);
+    document.getElementById('course-save-btn').addEventListener('click',()=>{
+      const name=document.getElementById('course-name-input').value.trim(),weekday=Number(document.getElementById('course-weekday-input').value);
+      const norm=v=>/^\d{3}$/.test(v)?'0'+v:v,start=norm(document.getElementById('course-start-input').value.trim()),end=norm(document.getElementById('course-end-input').value.trim());
+      if(!name||!/^\d{4}$/.test(start)||!/^\d{4}$/.test(end)||start>=end||Number(start.slice(0,2))>23||Number(start.slice(2))>59||Number(end.slice(0,2))>23||Number(end.slice(2))>59){alert('請填寫課程名稱，以及正確的開始、結束時間。');return}
+      const id=document.getElementById('course-edit-id').value,enabled=document.getElementById('course-enabled-input').checked;
+      if(id){const c=courses.find(x=>String(x.id)===String(id));if(c){c.name=name;c.weekday=weekday;c.startTime=start;c.endTime=end;c.enabled=enabled}}
+      else courses.push({id:'course_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),name,weekday,startTime:start,endTime:end,enabled,createdAt:new Date().toISOString()});
+      saveCourses();renderCourseManager();renderCourseView();resetCourseForm();
+    });
+
     function render() {
+      syncCourseReviewItems();
       todoList.innerHTML = '';
       db.filter(x => !x.date).forEach(item => todoList.appendChild(createItemRow(item)));
 
@@ -2681,6 +2801,7 @@
 
       if (currentView === 'cal') renderCalendar();
       if (currentView === 'timeline') renderTimelineGantt();
+      if (currentView === 'course') renderCourseView();
     }
 
     function createItemRow(item) {
@@ -2699,11 +2820,14 @@
       const realId = itemIdParts[0];
       const repeatIndex = itemIdParts.length > 1 ? Number(itemIdParts[1]) || 0 : 0;
 
+      const courseClick=item.courseReview?`openCourseReviewByKey('${encodeURIComponent(item.courseReviewKey)}')`:`confirmComplete('${realId}', ${repeatIndex})`;
+      const courseStatus=item.courseReview?`<button type="button" class="course-review-status-inline" onclick="event.stopPropagation();openCourseReviewByKey('${encodeURIComponent(item.courseReviewKey)}')">${item.courseReview.status==='done'?'🟢 已複習':'🔴 未複習'}</button>`:'';
       li.innerHTML = `
-        <div class="item-content" onclick="confirmComplete('${realId}', ${repeatIndex})">
+        <div class="item-content" onclick="${courseClick}">
           <span class="item-emoji">${em}</span>
           ${timeDisp ? `<span class="item-time">${timeDisp}</span>` : ''}
           <span class="item-text ${item.completed ? 'completed' : ''}">${item.text}${modeHint}</span>
+          ${courseStatus}
         </div>
         <div class="action-btns">
           <button type="button" class="edit-item-btn" onclick="openEditModal(${realId})">✏️</button>
@@ -3682,6 +3806,7 @@
         exportedAt: new Date().toISOString(),
         data: db,
         importantDates: importantDates,
+        courses: courses,
         defaultEmoji: userDefaultEmoji,
         emojiPresets: emojiPresetList
       };
