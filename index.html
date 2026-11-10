@@ -2110,12 +2110,40 @@
       return result.slice(0, 300);
     }
 
+    let cloudReminderSyncPromise = null;
+
     async function syncCloudReminders() {
       if (localStorage.getItem(PUSH_ENABLED_KEY) !== 'true') return;
       const device = getPushDevice();
       if (!device) return;
-      const reminders = buildCloudReminders();
-      await pushRequest('/api/sync', { deviceId: device.deviceId, reminders }, device.deviceToken);
+
+      const cacheKey = 'SIMPLE_DIARY_PUSH_LAST_SYNC_' + device.deviceId;
+      let reminders = buildCloudReminders();
+      let snapshot = JSON.stringify(reminders);
+      if (localStorage.getItem(cacheKey) === snapshot) return;
+
+      // Avoid duplicate KV writes when several saves happen close together.
+      if (cloudReminderSyncPromise) {
+        try { await cloudReminderSyncPromise; } catch (_) {}
+        reminders = buildCloudReminders();
+        snapshot = JSON.stringify(reminders);
+        if (localStorage.getItem(cacheKey) === snapshot) return;
+      }
+
+      const syncPromise = pushRequest(
+        '/api/sync',
+        { deviceId: device.deviceId, reminders },
+        device.deviceToken
+      ).then(() => {
+        try { localStorage.setItem(cacheKey, snapshot); } catch (_) {}
+      });
+
+      cloudReminderSyncPromise = syncPromise;
+      try {
+        await syncPromise;
+      } finally {
+        if (cloudReminderSyncPromise === syncPromise) cloudReminderSyncPromise = null;
+      }
     }
 
     function updateCloudPushButton(enabled) {
