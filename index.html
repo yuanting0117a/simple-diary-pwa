@@ -3741,7 +3741,7 @@
         }
         const hasImportantDates = !Array.isArray(parsed) && parsed && Array.isArray(parsed.importantDates);
         const importedImportantDates = hasImportantDates
-          ? parsed.importantDates.filter(item => item && typeof item.name === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(item.date) && ['countdown', 'elapsed'].includes(item.type))
+          ? parsed.importantDates.filter(item => item && typeof item.name === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && ['countdown', 'record'].includes(item.type))
           : null;
         const choice = prompt('選擇匯入方式：\n輸入 1：合併資料（保留現有記事、略過重複項目）\n輸入 2：取代資料（以備份內容完整取代）\n\n請輸入 1 或 2：', '1');
         if (choice !== '1' && choice !== '2') return;
