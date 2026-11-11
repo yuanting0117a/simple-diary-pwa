@@ -907,7 +907,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.55</div>
+      <div class="app-version">v56.56</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2515,12 +2515,13 @@
       inputModalTitle.innerText = "修改事項";
       inEmoji.value = item.emoji || userDefaultEmoji;
       
-      // 編輯時完整帶入原日期；多天一次保留起訖日期，方便只調整其中一端。
-      selectedTaskMode = item.taskType || 'fixed-multi';
+      // 編輯時以資料本身的起訖日期判斷「多天一次」，避免舊資料缺少 taskType 時只帶入單一天。
       const startKey = item.date ? normalizeTaskDateKey(item.date) : '';
       const endKey = item.endDate ? normalizeTaskDateKey(item.endDate) : '';
+      const hasDateRange = Boolean(startKey && endKey && endKey !== startKey);
+      selectedTaskMode = item.taskType === 'pick-one' || hasDateRange ? 'pick-one' : 'fixed-multi';
       pickerSelectedDates = selectedTaskMode === 'pick-one'
-        ? [...new Set([startKey, endKey].filter(Boolean))].sort()
+        ? [...new Set([startKey, endKey || startKey].filter(Boolean))].sort()
         : (startKey ? [startKey] : []);
       btnPickDate.setAttribute('data-val', pickerSelectedDates.join(','));
       if (!pickerSelectedDates.length) {
