@@ -19,4 +19,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: push-worker
-          command: deploy
+          wranglerVersion: "4.146.0"
+          command: deploy src/index.js --config wrangler.jsonc
