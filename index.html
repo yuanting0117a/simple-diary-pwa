@@ -697,6 +697,7 @@
     .picker-cell:hover { background: #e5e5ea; }
     .picker-cell.today-date { border: 1.5px solid var(--danger-color); }
     .picker-cell.selected { background: var(--primary-color); color: #fff; font-weight: bold; }
+    .picker-cell.in-range { background: #e8f2ff; color: #1769c2; }
     .picker-cell.other-month { color: #c7c7cc; background: #fff; }
 
     .rotate-90-active {
@@ -906,7 +907,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.54</div>
+      <div class="app-version">v56.55</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1713,6 +1714,9 @@
 
         if (pickerSelectedDates.includes(mmdd)) {
           cell.classList.add('selected');
+        } else if (selectedTaskMode === 'pick-one' && pickerSelectedDates.length > 1 &&
+          mmdd > pickerSelectedDates[0] && mmdd < pickerSelectedDates[pickerSelectedDates.length - 1]) {
+          cell.classList.add('in-range');
         }
 
         cell.onclick = (e) => {
@@ -1738,8 +1742,12 @@
       
       if (pickerSelectedDates.length === 0) {
         btnPickDate.innerText = '點選月曆選擇日期';
+      } else if (selectedTaskMode === 'pick-one' && pickerSelectedDates.length > 1) {
+        const first = pickerSelectedDates[0], last = pickerSelectedDates[pickerSelectedDates.length - 1];
+        btnPickDate.innerText = `起訖：${first.slice(0,4)}/${first.slice(4,6)}/${first.slice(6,8)}～${last.slice(0,4)}/${last.slice(4,6)}/${last.slice(6,8)}`;
       } else if (pickerSelectedDates.length === 1) {
-        btnPickDate.innerText = `已選: ${pickerSelectedDates[0].slice(0,4)}/${pickerSelectedDates[0].slice(4,6)}/${pickerSelectedDates[0].slice(6,8)}`;
+        const d = pickerSelectedDates[0];
+        btnPickDate.innerText = `已選: ${d.slice(0,4)}/${d.slice(4,6)}/${d.slice(6,8)}`;
       } else {
         btnPickDate.innerText = `已選 ${pickerSelectedDates.length} 天`;
       }
@@ -2507,15 +2515,30 @@
       inputModalTitle.innerText = "修改事項";
       inEmoji.value = item.emoji || userDefaultEmoji;
       
-      btnPickDate.setAttribute('data-val', item.date || '');
-      pickerSelectedDates = item.date ? [normalizeTaskDateKey(item.date)] : [];
-      btnPickDate.innerText = item.date ? `已選: ${normalizeTaskDateKey(item.date).slice(0,4)}/${normalizeTaskDateKey(item.date).slice(4,6)}/${normalizeTaskDateKey(item.date).slice(6,8)}` : '點選月曆選擇日期';
+      // 編輯時完整帶入原日期；多天一次保留起訖日期，方便只調整其中一端。
+      selectedTaskMode = item.taskType || 'fixed-multi';
+      const startKey = item.date ? normalizeTaskDateKey(item.date) : '';
+      const endKey = item.endDate ? normalizeTaskDateKey(item.endDate) : '';
+      pickerSelectedDates = selectedTaskMode === 'pick-one'
+        ? [...new Set([startKey, endKey].filter(Boolean))].sort()
+        : (startKey ? [startKey] : []);
+      btnPickDate.setAttribute('data-val', pickerSelectedDates.join(','));
+      if (!pickerSelectedDates.length) {
+        btnPickDate.innerText = '點選月曆選擇日期';
+      } else if (selectedTaskMode === 'pick-one' && pickerSelectedDates.length > 1) {
+        const first = pickerSelectedDates[0], last = pickerSelectedDates[pickerSelectedDates.length - 1];
+        btnPickDate.innerText = `起訖：${first.slice(0,4)}/${first.slice(4,6)}/${first.slice(6,8)}～${last.slice(0,4)}/${last.slice(4,6)}/${last.slice(6,8)}`;
+      } else if (pickerSelectedDates.length === 1) {
+        const d = pickerSelectedDates[0];
+        btnPickDate.innerText = `已選: ${d.slice(0,4)}/${d.slice(4,6)}/${d.slice(6,8)}`;
+      } else {
+        btnPickDate.innerText = `已選 ${pickerSelectedDates.length} 天`;
+      }
 
       inTime.value = item.time || "";
       inEndTime.value = item.endTime || "";
       inText.value = item.text || "";
       
-      selectedTaskMode = item.taskType || 'fixed-multi';
       if (selectedTaskMode === 'pick-one') {
         modePickoneBtn.classList.add('active');
         modeMultiBtn.classList.remove('active');
