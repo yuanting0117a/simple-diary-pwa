@@ -3123,17 +3123,18 @@
       }
       ganttBody.style.height = `${Math.max(200,10 + timelineLanes.length * 28 + 16)}px`;
 
+      ganttWrapper.dataset.timelineStart = rangeStart.getTime();
+      ganttWrapper.dataset.timelineColWidth = colWidth;
       const updateMonthLabel = () => {
-        const visibleOffset = Math.max(0, Math.floor(ganttWrapper.scrollLeft / colWidth));
-        const visibleDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + visibleOffset);
+        const visibleOffset = Math.max(0, Math.floor(ganttWrapper.scrollLeft / Number(ganttWrapper.dataset.timelineColWidth || 96)));
+        const visibleDate = new Date(Number(ganttWrapper.dataset.timelineStart), 0);
+        visibleDate.setTime(Number(ganttWrapper.dataset.timelineStart) + visibleOffset * 86400000);
         monthLabel.innerText = `${visibleDate.getFullYear()}年 ${visibleDate.getMonth()+1}月`;
       };
       if (!ganttWrapper.dataset.timelineScrollBound) {
         ganttWrapper.addEventListener('scroll', updateMonthLabel, {passive:true});
         ganttWrapper.dataset.timelineScrollBound = '1';
       }
-      ganttWrapper.dataset.timelineStart = rangeStart.getTime();
-      ganttWrapper.dataset.timelineColWidth = colWidth;
       updateMonthLabel();
 
       // 初次進入時間軸時定位到今天；之後重新繪製則保留目前的水平位置。
