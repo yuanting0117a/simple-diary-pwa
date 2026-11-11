@@ -913,7 +913,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.62</div>
+      <div class="app-version">v56.63</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1398,6 +1398,12 @@
       <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">支援完整 JSON 備份；可合併、取代，或匯入成唯讀檢視裝置。</div>
       <button type="button" class="btn" id="import-viewer-backup-btn" style="width:100%;margin-bottom:8px;">📖 匯入為唯讀檢視裝置</button>
       <input type="file" id="import-viewer-backup-file" accept="application/json,.json" style="display:none;">
+      <div style="font-size:0.85rem;font-weight:bold;margin:12px 0 6px;">手動雲端備份：</div>
+      <div style="display:flex;gap:8px;margin-bottom:6px;">
+        <button type="button" class="btn btn-primary" id="cloud-backup-upload" style="flex:1;">☁️ 上傳最新備份</button>
+        <button type="button" class="btn" id="cloud-backup-download" style="flex:1;">⬇️ 輸入配對碼下載</button>
+      </div>
+      <div id="cloud-backup-status" style="font-size:0.72rem;color:var(--text-sub);margin-bottom:8px;">手動上傳與下載，不會自動同步；雲端備份保留 30 天。</div>
       <div style="font-size:0.85rem; font-weight:bold; margin: 12px 0 6px 0;">AI 行程匯出：</div>
       <button type="button" class="btn btn-primary" id="export-ai-schedule-btn" style="width:100%; margin-bottom:8px;">🤖 匯出全部行程給 AI</button>
       <div style="font-size:0.72rem; color:var(--text-sub); margin-bottom:8px;">匯出 Markdown，包含所有行程、類型、時間、完成狀態與每週重複規則。</div>
@@ -3896,6 +3902,8 @@
       document.body.classList.toggle('read-only-mode', readOnlyMode);
       const banner = document.getElementById('read-only-banner');
       if (banner) banner.style.display = readOnlyMode ? 'block' : 'none';
+      const cloudUploadButton = document.getElementById('cloud-backup-upload');
+      if (cloudUploadButton) cloudUploadButton.style.display = readOnlyMode ? 'none' : '';
       ['clean-btn','edit-btn','open-input-modal','important-date-add'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = readOnlyMode ? 'none' : '';
@@ -3911,9 +3919,9 @@
     }
     applyReadOnlyMode(readOnlyMode);
 
-    // JSON 備份：保留既有 LOCAL_DIARY / DEFAULT_EMOJI / EMOJI_PRESETS 資料格式
-    document.getElementById('export-backup-btn').addEventListener('click', () => {
-      const backup = {
+    // 完整備份物件同時供本機 JSON 匯出與手動雲端備份使用。
+    function buildFullBackup() {
+      return {
         app: '簡潔記事',
         version: 2,
         backupFormat: 'simple-diary-full',
@@ -3925,6 +3933,10 @@
         defaultEmoji: userDefaultEmoji,
         emojiPresets: emojiPresetList
       };
+    }
+
+    document.getElementById('export-backup-btn').addEventListener('click', () => {
+      const backup = buildFullBackup();
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -4000,6 +4012,85 @@
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+    });
+
+    // 手動雲端備份：主機沿用本機配對碼；檢視裝置輸入配對碼下載後交給既有唯讀匯入流程。
+    const CLOUD_BACKUP_CODE_KEY = 'SIMPLE_DIARY_CLOUD_BACKUP_CODE_V1';
+    const cloudBackupStatus = message => {
+      const el = document.getElementById('cloud-backup-status');
+      if (el) el.textContent = message;
+    };
+    function makeCloudBackupCode() {
+      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const bytes = new Uint8Array(8);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, value => alphabet[value % alphabet.length]).join('');
+    }
+    document.getElementById('cloud-backup-upload').addEventListener('click', async () => {
+      if (readOnlyMode) {
+        alert('唯讀檢視裝置不能上傳備份。');
+        return;
+      }
+      const button = document.getElementById('cloud-backup-upload');
+      button.disabled = true;
+      cloudBackupStatus('正在上傳備份…');
+      try {
+        let code = localStorage.getItem(CLOUD_BACKUP_CODE_KEY);
+        if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code || '')) {
+          code = makeCloudBackupCode();
+          localStorage.setItem(CLOUD_BACKUP_CODE_KEY, code);
+        }
+        const response = await fetch(PUSH_API + '/api/backup/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, backup: buildFullBackup() })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'HTTP ' + response.status);
+        cloudBackupStatus('上傳完成。雲端備份將保留 30 天。');
+        alert('雲端備份上傳成功！\n\n你的配對碼：' + code + '\n\n請把配對碼提供給要檢視資料的裝置。之後再次上傳會沿用這組配對碼。');
+      } catch (error) {
+        cloudBackupStatus('上傳失敗：' + error.message);
+        alert('雲端備份上傳失敗：' + error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    document.getElementById('cloud-backup-download').addEventListener('click', async () => {
+      const entered = prompt('請輸入主機提供的 8 碼配對碼：');
+      if (entered === null) return;
+      const code = entered.trim().toUpperCase();
+      if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) {
+        alert('配對碼格式不正確，請確認是 8 碼英數字。');
+        return;
+      }
+      const button = document.getElementById('cloud-backup-download');
+      button.disabled = true;
+      cloudBackupStatus('正在下載雲端備份…');
+      try {
+        const response = await fetch(PUSH_API + '/api/backup/download?code=' + encodeURIComponent(code));
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.backup) throw new Error(result.error || '找不到備份，請確認配對碼或請主機重新上傳。');
+        const backup = result.backup;
+        if (!backup || backup.app !== '簡潔記事' || backup.backupFormat !== 'simple-diary-full' ||
+            !Array.isArray(backup.data) || !Array.isArray(backup.importantDates) ||
+            !Array.isArray(backup.courses) || !Array.isArray(backup.coursePeriods) ||
+            !Array.isArray(backup.emojiPresets)) {
+          throw new Error('雲端備份格式不正確，沒有更動本機資料。');
+        }
+        const file = new File([JSON.stringify(backup)], 'cloud-backup.json', { type: 'application/json' });
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        const input = document.getElementById('import-viewer-backup-file');
+        input.files = transfer.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        cloudBackupStatus('已下載備份，請在確認視窗中確認匯入。');
+      } catch (error) {
+        cloudBackupStatus('下載失敗：' + error.message);
+        alert('雲端備份下載失敗：' + error.message);
+      } finally {
+        button.disabled = false;
+      }
     });
 
     document.getElementById('import-viewer-backup-btn').addEventListener('click', () => {
