@@ -913,7 +913,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.63</div>
+      <div class="app-version">v56.64</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -1554,6 +1554,8 @@
     // 初始化資料庫；保留既有 LOCAL_DIARY，不建立空資料覆蓋原資料。
     let db = loadDB();
 
+    // 課程資料鍵：保留既有課程資料；課程功能目前維修中，不代表重新啟用。
+    const COURSE_SCHEDULE_KEY='SIMPLE_DIARY_COURSES_V1';
     function loadCourses(){try{const a=JSON.parse(localStorage.getItem(COURSE_SCHEDULE_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&x.id&&typeof x.name==='string'&&Number.isInteger(Number(x.weekday))&&/^\d{4}$/.test(x.startTime||'')&&/^\d{4}$/.test(x.endTime||'')):[]}catch(_){return[]}}
     let courses=loadCourses(),activeCourseReviewKey=null;
     const COURSE_PERIODS_KEY='SIMPLE_DIARY_COURSE_PERIODS_V1';let coursePeriods=[],courseSelectedCells=new Set();
