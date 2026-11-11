@@ -71,6 +71,8 @@
     .feature-menu-wrap > .weather-header-btn,
     .header-actions .icon-btn { width: 40px; height: 32px; min-width: 40px; padding: 4px 8px; border-radius: 8px; font-size: .82rem; box-shadow: none; }
     body.read-only-mode .action-btns { display:none !important; }
+    body.read-only-mode #cloud-push-enable,
+    body.read-only-mode #cloud-push-test { opacity:.55; cursor:not-allowed; }
     body.read-only-mode #important-date-add,
     body.read-only-mode #important-date-save,
     body.read-only-mode #important-date-detail-delete { display:none !important; }
@@ -911,7 +913,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.61</div>
+      <div class="app-version">v56.62</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2256,7 +2258,7 @@
     let cloudReminderSyncPromise = null;
 
     async function syncCloudReminders() {
-      if (localStorage.getItem(PUSH_ENABLED_KEY) !== 'true') return;
+      if (readOnlyMode || localStorage.getItem(PUSH_ENABLED_KEY) !== 'true') return;
       const device = getPushDevice();
       if (!device) return;
 
@@ -2298,6 +2300,7 @@
     }
 
     async function enableCloudPush() {
+      if (readOnlyMode) { pushStatus('📖 檢視模式不提供通知功能'); return; }
       const button = document.getElementById('cloud-push-enable');
       if (button) button.disabled = true;
       try {
@@ -2371,11 +2374,13 @@
     }
 
     async function toggleCloudPush() {
+      if (readOnlyMode) { pushStatus('📖 檢視模式不提供通知功能'); return; }
       if (localStorage.getItem(PUSH_ENABLED_KEY) === 'true') await disableCloudPush();
       else await enableCloudPush();
     }
 
     async function testCloudPush() {
+      if (readOnlyMode) { pushStatus('📖 檢視模式不提供通知功能'); return; }
       const testButton = document.getElementById('cloud-push-test');
       if (testButton) testButton.disabled = true;
       try {
@@ -2395,6 +2400,10 @@
     document.getElementById('cloud-push-test').addEventListener('click', testCloudPush);
 
     async function refreshCloudPushStatus() {
+      if (readOnlyMode) {
+        await lockCloudPushForViewer();
+        return;
+      }
       const enabled = localStorage.getItem(PUSH_ENABLED_KEY) === 'true';
       const button = document.getElementById('cloud-push-enable');
       const testButton = document.getElementById('cloud-push-test');
@@ -2415,6 +2424,32 @@
       } catch (error) {
         pushStatus('⚠️ 雲端同步失敗：' + error.message, true);
       }
+    }
+
+    async function lockCloudPushForViewer() {
+      const device = getPushDevice();
+      try {
+        if (device) await pushRequest('/api/unregister', { deviceId: device.deviceId }, device.deviceToken);
+      } catch (error) {
+        console.warn('唯讀裝置停用雲端通知時，伺服器解除註冊未完成：', error);
+      }
+      try {
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          if (subscription) await subscription.unsubscribe();
+        }
+      } catch (error) {
+        console.warn('唯讀裝置解除本機推播訂閱失敗：', error);
+      }
+      localStorage.removeItem(PUSH_ENABLED_KEY);
+      localStorage.removeItem(PUSH_DEVICE_KEY);
+      updateCloudPushButton(false);
+      const button = document.getElementById('cloud-push-enable');
+      const testButton = document.getElementById('cloud-push-test');
+      if (button) { button.disabled = true; button.textContent = '🔒 檢視模式停用'; }
+      if (testButton) testButton.disabled = true;
+      pushStatus('📖 檢視模式已停用通知，其他功能不受影響');
     }
 
     function saveAndRender() {
@@ -3860,6 +3895,13 @@
         const el = document.getElementById(id);
         if (el) el.style.display = readOnlyMode ? 'none' : '';
       });
+      if (readOnlyMode) {
+        const pushButton = document.getElementById('cloud-push-enable');
+        const testButton = document.getElementById('cloud-push-test');
+        if (pushButton) { pushButton.disabled = true; pushButton.textContent = '🔒 檢視模式停用'; }
+        if (testButton) testButton.disabled = true;
+        lockCloudPushForViewer();
+      }
       if (readOnlyMode && isEditing) setEditingMode(false);
     }
     applyReadOnlyMode(readOnlyMode);
@@ -3994,7 +4036,7 @@
           ? parsed.defaultEmoji : '📌';
         if (!confirm('這會完整取代這台裝置目前的記事、紀念日及 Emoji 設定，並切換成唯讀檢視模式。確定繼續？')) return;
 
-        // 先建立新資料，再一次寫入；通知裝置憑證與定位偏好保留在本機，不從備份覆蓋。
+        // 先建立新資料，再一次寫入；唯讀檢視裝置不沿用通知設定、裝置憑證或推播訂閱，定位偏好仍保留。
         localStorage.setItem('LOCAL_DIARY', JSON.stringify(nextDB));
         localStorage.setItem(IMPORTANT_DATES_KEY, JSON.stringify(nextDates));
         localStorage.setItem(COURSE_SCHEDULE_KEY, JSON.stringify(nextCourses));
@@ -4451,7 +4493,7 @@
       countdownStatus.textContent = '時間到！休息一下吧。';
       renderCountdown();
       const showTimerNotice = async () => {
-        if ('Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+        if (!readOnlyMode && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
           try {
             const registration = await navigator.serviceWorker.ready;
             await registration.showNotification('簡潔記事｜計時器', {
@@ -4558,7 +4600,7 @@
         renderCountdown();
         return;
       }
-      if ('Notification' in window && Notification.permission === 'default') {
+      if (!readOnlyMode && 'Notification' in window && Notification.permission === 'default') {
         try { await Notification.requestPermission(); } catch (_) {}
       }
       countdownEndAt = Date.now() + countdownRemaining;
