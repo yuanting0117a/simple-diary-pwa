@@ -914,7 +914,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.65</div>
+      <div class="app-version">v56.66</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2982,18 +2982,22 @@
         return deadline && deadline >= today && x.date;
       });
 
-      // 以連續日期軸呈現，不再每到月底就重新切換整個月份。
-      const rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      // 以選取月份為中心，只提供前一個月到後一個月的拖曳範圍。
+      const savedMonth = ganttWrapper.dataset.timelineSelectedMonth;
+      const selectedParts = savedMonth ? savedMonth.split('-').map(Number) : [now.getFullYear(), now.getMonth() + 1];
+      const selectedMonth = new Date(selectedParts[0], selectedParts[1] - 1, 1);
+      ganttWrapper.dataset.timelineSelectedMonth = `${selectedMonth.getFullYear()}-${selectedMonth.getMonth() + 1}`;
+      const rangeStart = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1);
       const minStart = expandedItems.reduce((min, item) => {
         const d = taskDateFromKey(item.date);
         return d && d < min ? d : min;
       }, rangeStart);
       rangeStart.setFullYear(minStart.getFullYear(), minStart.getMonth(), 1);
-      const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 6, 0);
+      const selectedRangeEnd = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 2, 0);
       const maxEnd = expandedItems.reduce((max, item) => {
         const d = taskDateFromKey(item.endDate || item.date);
         return d && d > max ? d : max;
-      }, defaultEnd);
+      }, selectedRangeEnd);
       const rangeEnd = new Date(maxEnd.getFullYear(), maxEnd.getMonth() + 1, 0);
       const totalDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
       const minWidthPx = totalDays * colWidth;
@@ -3125,10 +3129,27 @@
 
       ganttWrapper.dataset.timelineStart = rangeStart.getTime();
       ganttWrapper.dataset.timelineColWidth = colWidth;
+      const getScrollBounds = () => {
+        const parts = (ganttWrapper.dataset.timelineSelectedMonth || '').split('-').map(Number);
+        const selected = new Date(parts[0], parts[1] - 1, 1);
+        const minDate = new Date(selected.getFullYear(), selected.getMonth() - 1, 1);
+        const maxDate = new Date(selected.getFullYear(), selected.getMonth() + 2, 0);
+        const start = new Date(Number(ganttWrapper.dataset.timelineStart));
+        const minOffset = Math.round((minDate - start) / 86400000);
+        const maxOffset = Math.round((maxDate - start) / 86400000) + 1;
+        const minLeft = Math.max(0, minOffset * colWidth);
+        const maxLeft = Math.max(minLeft, maxOffset * colWidth - ganttWrapper.clientWidth);
+        return {minLeft, maxLeft};
+      };
       const updateMonthLabel = () => {
+        const bounds = getScrollBounds();
+        const clamped = Math.max(bounds.minLeft, Math.min(bounds.maxLeft, ganttWrapper.scrollLeft));
+        if (Math.abs(clamped - ganttWrapper.scrollLeft) > 1) {
+          ganttWrapper.scrollLeft = clamped;
+          return;
+        }
         const visibleOffset = Math.max(0, Math.floor(ganttWrapper.scrollLeft / Number(ganttWrapper.dataset.timelineColWidth || 96)));
-        const visibleDate = new Date(Number(ganttWrapper.dataset.timelineStart), 0);
-        visibleDate.setTime(Number(ganttWrapper.dataset.timelineStart) + visibleOffset * 86400000);
+        const visibleDate = new Date(Number(ganttWrapper.dataset.timelineStart) + visibleOffset * 86400000);
         monthLabel.innerText = `${visibleDate.getFullYear()}年 ${visibleDate.getMonth()+1}月`;
       };
       if (!ganttWrapper.dataset.timelineScrollBound) {
@@ -3137,22 +3158,24 @@
       }
       updateMonthLabel();
 
-      // 初次進入時間軸時定位到今天；之後重新繪製則保留目前的水平位置。
+      // 首次定位在選取月份；後續重新繪製時由月份切換按鈕指定位置。
       if (!ganttWrapper.dataset.timelinePositioned) {
-        ganttWrapper.scrollLeft = Math.max(0, todayOffset * colWidth);
+        const selectedOffset = Math.round((selectedMonth - rangeStart) / 86400000);
+        ganttWrapper.scrollLeft = Math.max(0, selectedOffset * colWidth);
         ganttWrapper.dataset.timelinePositioned = '1';
-        updateMonthLabel();
       }
+      updateMonthLabel();
     }
 
     function scrollTimelineMonth(delta) {
       const wrapper = document.getElementById('gantt-wrapper');
+      const parts = (wrapper.dataset.timelineSelectedMonth || '').split('-').map(Number);
+      const current = new Date(parts[0], parts[1] - 1, 1);
+      const target = new Date(current.getFullYear(), current.getMonth() + delta, 1);
+      wrapper.dataset.timelineSelectedMonth = `${target.getFullYear()}-${target.getMonth() + 1}`;
+      renderTimelineGantt();
       const colWidth = Number(wrapper.dataset.timelineColWidth || 96);
-      const startMs = Number(wrapper.dataset.timelineStart || new Date().getTime());
-      const currentOffset = Math.max(0, Math.floor(wrapper.scrollLeft / colWidth));
-      const currentDate = new Date(startMs + currentOffset * 86400000);
-      const target = new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1);
-      const startDate = new Date(startMs);
+      const startDate = new Date(Number(wrapper.dataset.timelineStart));
       const targetOffset = Math.round((target - startDate) / 86400000);
       wrapper.scrollTo({left:Math.max(0,targetOffset * colWidth),behavior:'smooth'});
     }
