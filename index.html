@@ -2426,30 +2426,35 @@
       }
     }
 
+    let viewerPushLockPromise = null;
     async function lockCloudPushForViewer() {
-      const device = getPushDevice();
-      try {
-        if (device) await pushRequest('/api/unregister', { deviceId: device.deviceId }, device.deviceToken);
-      } catch (error) {
-        console.warn('唯讀裝置停用雲端通知時，伺服器解除註冊未完成：', error);
-      }
-      try {
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          const subscription = await registration.pushManager.getSubscription();
-          if (subscription) await subscription.unsubscribe();
+      if (viewerPushLockPromise) return viewerPushLockPromise;
+      viewerPushLockPromise = (async () => {
+        const device = getPushDevice();
+        try {
+          if (device) await pushRequest('/api/unregister', { deviceId: device.deviceId }, device.deviceToken);
+        } catch (error) {
+          console.warn('唯讀裝置停用雲端通知時，伺服器解除註冊未完成：', error);
         }
-      } catch (error) {
-        console.warn('唯讀裝置解除本機推播訂閱失敗：', error);
-      }
-      localStorage.removeItem(PUSH_ENABLED_KEY);
-      localStorage.removeItem(PUSH_DEVICE_KEY);
-      updateCloudPushButton(false);
-      const button = document.getElementById('cloud-push-enable');
-      const testButton = document.getElementById('cloud-push-test');
-      if (button) { button.disabled = true; button.textContent = '🔒 檢視模式停用'; }
-      if (testButton) testButton.disabled = true;
-      pushStatus('📖 檢視模式已停用通知，其他功能不受影響');
+        try {
+          if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) await subscription.unsubscribe();
+          }
+        } catch (error) {
+          console.warn('唯讀裝置解除本機推播訂閱失敗：', error);
+        }
+        localStorage.removeItem(PUSH_ENABLED_KEY);
+        localStorage.removeItem(PUSH_DEVICE_KEY);
+        updateCloudPushButton(false);
+        const button = document.getElementById('cloud-push-enable');
+        const testButton = document.getElementById('cloud-push-test');
+        if (button) { button.disabled = true; button.textContent = '🔒 檢視模式停用'; }
+        if (testButton) testButton.disabled = true;
+        pushStatus('📖 檢視模式已停用通知，其他功能不受影響');
+      })();
+      return viewerPushLockPromise;
     }
 
     function saveAndRender() {
