@@ -658,6 +658,7 @@
       pointer-events: none;
     }
     .gantt-day-divider { background: #e2e5eb; }
+    .gantt-month-divider { position:absolute;top:0;bottom:0;width:2px;background:#9aa9bd;z-index:3;pointer-events:none; }
     .gantt-week-divider { background: #6b9bd1; }
     .gantt-day-col.day-start { border-left: 1px solid #e2e5eb; }
     .gantt-day-col.week-start { border-left-color: #6b9bd1; }
@@ -913,7 +914,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.64</div>
+      <div class="app-version">v56.65</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -2969,193 +2970,200 @@
       const ganttHeader = document.getElementById('gantt-header');
       const ganttBody = document.getElementById('gantt-body');
       const monthLabel = document.getElementById('timeline-month-label');
-
+      const ganttWrapper = document.getElementById('gantt-wrapper');
       ganttHeader.innerHTML = '';
       ganttBody.innerHTML = '';
 
-      const viewYear = timelineDate.getFullYear();
-      const viewMonth = timelineDate.getMonth();
-      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
       const now = new Date();
-      const isCurrentMonth = now.getFullYear() === viewYear && now.getMonth() === viewMonth;
-      const todayDateNum = now.getDate();
-
-      monthLabel.innerText = `${viewYear}年 ${viewMonth + 1}月`;
-
-      // 每日 96px，將一天拆成 24 個小時刻度（每小時 4px）。
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const colWidth = 96;
-      const minWidthPx = daysInMonth * colWidth;
+      const expandedItems = getExpandedItems().filter(x => {
+        const deadline = taskDateFromKey(x.endDate || x.date);
+        return deadline && deadline >= today && x.date;
+      });
+
+      // 以連續日期軸呈現，不再每到月底就重新切換整個月份。
+      const rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const minStart = expandedItems.reduce((min, item) => {
+        const d = taskDateFromKey(item.date);
+        return d && d < min ? d : min;
+      }, rangeStart);
+      rangeStart.setFullYear(minStart.getFullYear(), minStart.getMonth(), 1);
+      const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 6, 0);
+      const maxEnd = expandedItems.reduce((max, item) => {
+        const d = taskDateFromKey(item.endDate || item.date);
+        return d && d > max ? d : max;
+      }, defaultEnd);
+      const rangeEnd = new Date(maxEnd.getFullYear(), maxEnd.getMonth() + 1, 0);
+      const totalDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+      const minWidthPx = totalDays * colWidth;
       ganttHeader.style.minWidth = `${minWidthPx}px`;
       ganttBody.style.minWidth = `${minWidthPx}px`;
 
-      for (let day = 1; day <= daysInMonth; day++) {
+      const monthNames = [];
+      for (let offset = 0; offset < totalDays; offset++) {
+        const date = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + offset);
+        const day = date.getDate();
+        const weekday = date.getDay();
+        const isToday = date.getTime() === today.getTime();
         const col = document.createElement('div');
-        const weekday = new Date(viewYear, viewMonth, day).getDay();
-        col.className = `gantt-day-col ${day > 1 ? 'day-start' : ''} ${weekday === 1 && day > 1 ? 'week-start' : ''} ${isCurrentMonth && day === todayDateNum ? 'today-head' : ''}`;
+        col.className = `gantt-day-col ${offset > 0 ? 'day-start' : ''} ${weekday === 1 && offset > 0 ? 'week-start' : ''} ${isToday ? 'today-head' : ''}`;
         col.style.width = `${colWidth}px`;
         col.style.flex = `0 0 ${colWidth}px`;
         const weekdayLabel = ['日','一','二','三','四','五','六'][weekday];
-        const dateLabel = isCurrentMonth && day === todayDateNum
-          ? `<div class="today-marker-badge">${day}（${weekdayLabel}）</div>`
-          : `${day}（${weekdayLabel}）`;
-        col.innerHTML = `<div style="height:22px;display:flex;align-items:center;justify-content:center;font-size:.72rem;">${dateLabel}</div>
+        const dateLabel = isToday ? `<div class="today-marker-badge">${day}</div>` : String(day);
+        const monthTag = day === 1 ? `${date.getFullYear()}年${date.getMonth()+1}月` : '';
+        col.innerHTML = `<div style="height:22px;display:flex;align-items:center;justify-content:center;font-size:.72rem;position:relative;">${dateLabel}<span style="position:absolute;top:-17px;left:2px;font-size:.62rem;font-weight:700;white-space:nowrap;color:var(--primary-color);">${monthTag}</span></div>
           <div style="display:flex;justify-content:space-between;padding:0 2px;font-size:.52rem;font-weight:normal;color:var(--text-sub);">
             <span>00</span><span>06</span><span>12</span><span>18</span>
-          </div>`;
+          </div><div style="font-size:.55rem;color:var(--text-sub);">${weekdayLabel}</div>`;
         ganttHeader.appendChild(col);
+        if (day === 1) monthNames.push({date, offset});
       }
 
-      // 每日使用淡灰分隔線；週一改用同樣細度的藍色分隔線。
-      for (let day = 2; day <= daysInMonth; day++) {
+      for (let offset = 1; offset < totalDays; offset++) {
+        const date = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + offset);
         const divider = document.createElement('div');
-        divider.className = new Date(viewYear, viewMonth, day).getDay() === 1
-          ? 'gantt-week-divider'
-          : 'gantt-day-divider';
-        divider.style.left = `${(day - 1) * colWidth}px`;
+        divider.className = date.getDate() === 1 ? 'gantt-month-divider' : (date.getDay() === 1 ? 'gantt-week-divider' : 'gantt-day-divider');
+        divider.style.left = `${offset * colWidth}px`;
         ganttBody.appendChild(divider);
       }
 
-      if (isCurrentMonth) {
+      const todayOffset = Math.round((today - rangeStart) / 86400000);
+      if (todayOffset >= 0 && todayOffset < totalDays) {
         const todayLine = document.createElement('div');
         todayLine.className = 'today-line';
-        todayLine.style.left = `${(todayDateNum - 1) * colWidth + colWidth / 2}px`;
+        todayLine.style.left = `${todayOffset * colWidth + colWidth / 2}px`;
         ganttBody.appendChild(todayLine);
       }
 
-      const currMonthKey = String(viewYear) + String(viewMonth + 1).padStart(2, '0');
-      const todayForTimeline = new Date();
-      todayForTimeline.setHours(0, 0, 0, 0);
-      const expandedItems = getExpandedItems().filter(x => {
-        const deadline = x.endDate || x.date;
-        if (!deadline) return false;
-        const deadlineDate = taskDateFromKey(deadline);
-        return deadlineDate >= todayForTimeline;
-      });
-
-      const monthItems = expandedItems
-        .filter(x => x.date && normalizeTaskDateKey(x.date).substring(0, 6) === currMonthKey)
-        .map(item => {
-          const parseDate = (md, fallback) => taskDateFromKey(md) || fallback;
-          const startDate = parseDate(item.date, null);
-          if (!startDate) return null;
-          let endDate = parseDate(item.endDate || item.date, startDate);
-          if (endDate < startDate) endDate = new Date(endDate.getFullYear() + 1, endDate.getMonth(), endDate.getDate());
-
-          const dayOffset = d => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(viewYear, viewMonth, 1)) / 86400000);
-          const readMinutes = value => /^\d{4}$/.test(value || '')
-            ? Math.min(1439, Number(value.slice(0, 2)) * 60 + Number(value.slice(2, 4)))
-            : null;
-          const startMinutes = readMinutes(item.time);
-          const endMinutes = readMinutes(item.endTime);
-          const startOffset = dayOffset(startDate);
-          let endOffset = dayOffset(endDate);
-          let startX, endX;
-
-          if (startMinutes === null) {
-            // 沒有指定時間：維持整日／跨日的顯示方式。
-            startX = startOffset * colWidth;
-            endX = (endOffset + 1) * colWidth;
+      const dayOffset = d => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - rangeStart) / 86400000);
+      const readMinutes = value => /^\\d{4}$/.test(value || '')
+        ? Math.min(1439, Number(value.slice(0, 2)) * 60 + Number(value.slice(2, 4)))
+        : null;
+      const timelineItems = expandedItems.map(item => {
+        const startDate = taskDateFromKey(item.date);
+        if (!startDate) return null;
+        let endDate = taskDateFromKey(item.endDate || item.date) || startDate;
+        if (endDate < startDate) endDate = new Date(endDate.getFullYear() + 1, endDate.getMonth(), endDate.getDate());
+        const startDay = dayOffset(startDate);
+        let endDay = dayOffset(endDate);
+        const startMinutes = readMinutes(item.time);
+        const endMinutes = readMinutes(item.endTime);
+        let startX, endX;
+        if (startMinutes === null) {
+          startX = startDay * colWidth;
+          endX = (endDay + 1) * colWidth;
+        } else {
+          startX = startDay * colWidth + (startMinutes / 1440) * colWidth;
+          if (endMinutes !== null) {
+            if (endDay === startDay && endMinutes <= startMinutes) endDay += 1;
+            endX = endDay * colWidth + (endMinutes / 1440) * colWidth;
+          } else if (item.endDate && endDay > startDay) {
+            endX = (endDay + 1) * colWidth;
           } else {
-            startX = startOffset * colWidth + (startMinutes / 1440) * colWidth;
-            if (endMinutes !== null) {
-              if (endOffset === startOffset && endMinutes <= startMinutes) endOffset += 1;
-              endX = endOffset * colWidth + (endMinutes / 1440) * colWidth;
-            } else if (item.endDate && endOffset > startOffset) {
-              endX = (endOffset + 1) * colWidth;
-            } else {
-              // 只有開始時間時，以一小時作為時間軸上的標記長度。
-              endX = startX + colWidth / 24;
-            }
+            endX = startX + colWidth / 24;
           }
-          if (endX <= startX) endX = startX + colWidth / 24;
-          return { item, startX, endX, startDate };
-        })
-        .filter(Boolean)
-        .sort((a, b) => a.startX - b.startX || a.endX - b.endX || String(a.item.id).localeCompare(String(b.item.id)));
+        }
+        if (endX <= startX) endX = startX + colWidth / 24;
+        return {item, startX, endX, startDate};
+      }).filter(entry => entry && entry.endX > 0 && entry.startX < minWidthPx)
+        .sort((a,b) => a.startX-b.startX || a.endX-b.endX || String(a.item.id).localeCompare(String(b.item.id)));
 
-      if (monthItems.length === 0) {
-        const emptyHint = document.createElement('div');
-        emptyHint.style.cssText = 'color:gray; font-size:0.85rem; padding:20px 0; text-align:center; width:100%;';
-        emptyHint.innerText = '本月尚無行程';
-        ganttBody.appendChild(emptyHint);
-        ganttBody.style.height = '200px';
-        return;
-      }
-
-      // 先量完整標籤寬度，將文字實際佔用範圍納入排位。
       const timelineMeasureCanvas = document.createElement('canvas');
       const timelineMeasureContext = timelineMeasureCanvas.getContext('2d');
-      if (!timelineMeasureContext) {
-        ganttBody.style.height = '200px';
-        return;
-      }
+      if (!timelineMeasureContext) return;
       timelineMeasureContext.font = '12px sans-serif';
-      monthItems.forEach(entry => {
+      timelineItems.forEach(entry => {
         const item = entry.item;
-        const em = item.emoji || userDefaultEmoji || '';
-        const timeDisp = item.time
-          ? '[' + item.time + (item.endTime ? '～' + item.endTime : '') + ']'
-          : '';
-        entry.timeLabel = timeDisp;
-        entry.fullLabel = [timeDisp, em, item.text || ''].filter(Boolean).join('');
+        const timeDisp = item.time ? '[' + item.time + (item.endTime ? '～' + item.endTime : '') + ']' : '';
+        entry.fullLabel = [timeDisp, item.emoji || userDefaultEmoji || '', item.text || ''].filter(Boolean).join('');
         entry.labelWidth = timelineMeasureContext.measureText(entry.fullLabel).width + 18;
         entry.layoutEndX = Math.max(entry.endX, entry.startX + entry.labelWidth);
       });
 
-      // 同一次新增的事項固定在同一排；不同批次依時間區間＋完整文字寬度分配列位。
       const timelineGroups = new Map();
-      monthItems.forEach(entry => {
+      timelineItems.forEach(entry => {
         const groupKey = entry.item.groupId || `item_${entry.item.id}`;
-        if (!timelineGroups.has(groupKey)) timelineGroups.set(groupKey, { key: groupKey, entries: [], start: Infinity, end: -Infinity });
+        if (!timelineGroups.has(groupKey)) timelineGroups.set(groupKey, {entries:[], start:Infinity, end:-Infinity});
         const group = timelineGroups.get(groupKey);
         group.entries.push(entry);
         group.start = Math.min(group.start, entry.startX);
         group.end = Math.max(group.end, entry.layoutEndX);
       });
-      const orderedTimelineGroups = [...timelineGroups.values()].sort((a, b) => a.start - b.start);
       const timelineLanes = [];
-      orderedTimelineGroups.forEach(group => {
+      [...timelineGroups.values()].sort((a,b) => a.start-b.start).forEach(group => {
         let laneIndex = timelineLanes.findIndex(laneEnd => laneEnd <= group.start);
         if (laneIndex < 0) laneIndex = timelineLanes.length;
         timelineLanes[laneIndex] = group.end;
         group.entries.forEach(entry => { entry.laneIndex = laneIndex; });
       });
 
-      monthItems.forEach(({ item, startX, endX, startDate, laneIndex, fullLabel }) => {
+      timelineItems.forEach(({item,startX,endX,startDate,laneIndex,fullLabel}) => {
         const bar = document.createElement('div');
         bar.className = `gantt-bar-item ${item.completed ? 'completed' : ''}`;
-        // 時間框只代表真實時間區間，寬度與位置完全不受文字長度影響。
         bar.style.left = `${startX + 2}px`;
-        bar.style.width = `${Math.max(5, endX - startX - 4)}px`;
+        bar.style.width = `${Math.max(5,endX-startX-4)}px`;
         bar.style.top = `${10 + laneIndex * 28}px`;
         bar.style.overflow = 'visible';
         bar.style.textOverflow = 'clip';
-        bar.innerHTML = '';
         const label = document.createElement('span');
         label.textContent = fullLabel;
         label.style.cssText = 'display:block;white-space:nowrap;overflow:visible;text-overflow:clip;position:relative;z-index:6;';
         bar.appendChild(label);
-
-        bar.onclick = e => {
-          e.stopPropagation();
-          showItemDetail(item, startDate);
-        };
+        bar.onclick = e => { e.stopPropagation(); showItemDetail(item,startDate); };
         ganttBody.appendChild(bar);
       });
 
-      ganttBody.style.height = `${10 + timelineLanes.length * 28 + 16}px`;
+      if (!timelineItems.length) {
+        const emptyHint = document.createElement('div');
+        emptyHint.style.cssText = 'color:gray;font-size:.85rem;padding:20px 0;text-align:center;width:100%;';
+        emptyHint.innerText = '目前沒有未來行程';
+        ganttBody.appendChild(emptyHint);
+      }
+      ganttBody.style.height = `${Math.max(200,10 + timelineLanes.length * 28 + 16)}px`;
+
+      const updateMonthLabel = () => {
+        const visibleOffset = Math.max(0, Math.floor(ganttWrapper.scrollLeft / colWidth));
+        const visibleDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + visibleOffset);
+        monthLabel.innerText = `${visibleDate.getFullYear()}年 ${visibleDate.getMonth()+1}月`;
+      };
+      if (!ganttWrapper.dataset.timelineScrollBound) {
+        ganttWrapper.addEventListener('scroll', updateMonthLabel, {passive:true});
+        ganttWrapper.dataset.timelineScrollBound = '1';
+      }
+      ganttWrapper.dataset.timelineStart = rangeStart.getTime();
+      ganttWrapper.dataset.timelineColWidth = colWidth;
+      updateMonthLabel();
+
+      // 初次進入時間軸時定位到今天；之後重新繪製則保留目前的水平位置。
+      if (!ganttWrapper.dataset.timelinePositioned) {
+        ganttWrapper.scrollLeft = Math.max(0, todayOffset * colWidth);
+        ganttWrapper.dataset.timelinePositioned = '1';
+        updateMonthLabel();
+      }
     }
 
-    document.getElementById('timeline-prev-m').addEventListener('click', (e) => {
+    function scrollTimelineMonth(delta) {
+      const wrapper = document.getElementById('gantt-wrapper');
+      const colWidth = Number(wrapper.dataset.timelineColWidth || 96);
+      const startMs = Number(wrapper.dataset.timelineStart || new Date().getTime());
+      const currentOffset = Math.max(0, Math.floor(wrapper.scrollLeft / colWidth));
+      const currentDate = new Date(startMs + currentOffset * 86400000);
+      const target = new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1);
+      const startDate = new Date(startMs);
+      const targetOffset = Math.round((target - startDate) / 86400000);
+      wrapper.scrollTo({left:Math.max(0,targetOffset * colWidth),behavior:'smooth'});
+    }
+
+    document.getElementById('timeline-prev-m').addEventListener('click', e => {
       e.preventDefault();
-      timelineDate.setMonth(timelineDate.getMonth() - 1);
-      renderTimelineGantt();
+      scrollTimelineMonth(-1);
     });
 
-    document.getElementById('timeline-next-m').addEventListener('click', (e) => {
+    document.getElementById('timeline-next-m').addEventListener('click', e => {
       e.preventDefault();
-      timelineDate.setMonth(timelineDate.getMonth() + 1);
-      renderTimelineGantt();
+      scrollTimelineMonth(1);
     });
 
     function showItemDetail(item, dateObj) {
