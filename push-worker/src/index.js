@@ -151,13 +151,12 @@ async function handleRequest(request, env) {
     return json({ devices, totalDevices: devices.length }, 200, origin);
   }
 
-  if (request.method !== "POST") return json({ error: "not_found" }, 404, origin);
-
-  let body;
-  try {
-    body = await readBody(request);
-  } catch {
-    return json({ error: "invalid_json_or_request_too_large" }, 400, origin);
+  if (request.method === "GET" && url.pathname === "/api/backup/download") {
+    const code = String(url.searchParams.get("code") || "").toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) return json({ error: "invalid_code" }, 400, origin);
+    const backup = await env.REMINDERS.get("backup:" + code, "json");
+    if (!backup) return json({ error: "backup_not_found" }, 404, origin);
+    return json({ backup }, 200, origin);
   }
 
   if (request.method === "POST" && url.pathname === "/api/backup/upload") {
@@ -181,12 +180,13 @@ async function handleRequest(request, env) {
     return json({ ok: true, expiresInDays: 30 }, 200, origin);
   }
 
-  if (request.method === "GET" && url.pathname === "/api/backup/download") {
-    const code = String(url.searchParams.get("code") || "").toUpperCase();
-    if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) return json({ error: "invalid_code" }, 400, origin);
-    const backup = await env.REMINDERS.get("backup:" + code, "json");
-    if (!backup) return json({ error: "backup_not_found" }, 404, origin);
-    return json({ backup }, 200, origin);
+  if (request.method !== "POST") return json({ error: "not_found" }, 404, origin);
+
+  let body;
+  try {
+    body = await readBody(request);
+  } catch {
+    return json({ error: "invalid_json_or_request_too_large" }, 400, origin);
   }
 
   if (url.pathname === "/api/register") {
