@@ -160,6 +160,35 @@ async function handleRequest(request, env) {
     return json({ error: "invalid_json_or_request_too_large" }, 400, origin);
   }
 
+  if (request.method === "POST" && url.pathname === "/api/backup/upload") {
+    let payload;
+    try {
+      const raw = await request.text();
+      if (raw.length > 1000000) return json({ error: "backup_too_large" }, 413, origin);
+      payload = JSON.parse(raw);
+    } catch {
+      return json({ error: "invalid_json" }, 400, origin);
+    }
+    const code = String(payload?.code || "").toUpperCase();
+    const backup = payload?.backup;
+    if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code) || !backup || backup.app !== "簡潔記事" ||
+        backup.backupFormat !== "simple-diary-full" || !Array.isArray(backup.data) ||
+        !Array.isArray(backup.importantDates) || !Array.isArray(backup.courses) ||
+        !Array.isArray(backup.coursePeriods) || !Array.isArray(backup.emojiPresets)) {
+      return json({ error: "invalid_backup" }, 400, origin);
+    }
+    await env.REMINDERS.put("backup:" + code, JSON.stringify(backup), { expirationTtl: 60 * 60 * 24 * 30 });
+    return json({ ok: true, expiresInDays: 30 }, 200, origin);
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/backup/download") {
+    const code = String(url.searchParams.get("code") || "").toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) return json({ error: "invalid_code" }, 400, origin);
+    const backup = await env.REMINDERS.get("backup:" + code, "json");
+    if (!backup) return json({ error: "backup_not_found" }, 404, origin);
+    return json({ backup }, 200, origin);
+  }
+
   if (url.pathname === "/api/register") {
     const { deviceId, deviceToken, subscription } = body || {};
     if (!validDeviceId(deviceId) || typeof deviceToken !== "string" || deviceToken.length < 32 || !validSubscription(subscription)) {
