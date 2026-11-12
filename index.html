@@ -914,7 +914,7 @@
           <button type="button" class="feature-menu-item disabled" id="feature-fixed" disabled>📌 固定安排 <span>即將推出</span></button>
         </div>
       </div>
-      <div class="app-version">v56.67</div>
+      <div class="app-version">v56.68</div>
       <div class="header-actions">
         <button type="button" class="btn" id="clean-btn">清理完成</button>
         <button type="button" class="btn icon-btn" id="edit-btn" title="編輯事項" aria-label="編輯事項"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3.2 16.9 15.8 4.3a2.9 2.9 0 0 1 4.1 0l.8.8a2.9 2.9 0 0 1 0 4.1L8.1 21.8 2 23l1.2-6.1Zm1.4 1.1-.4 2 2-.4 1.2-1.2-1.6-1.6-1.2 1.2ZM8.1 16.8l1.6 1.6L19.3 8.8l-1.6-1.6-9.6 9.6Z" transform="translate(0 -1)"/></svg></button>
@@ -4971,19 +4971,9 @@
     document.getElementById('today-tasks-close').addEventListener('click', () => {
       document.getElementById('today-tasks-overlay').classList.remove('show');
     });
-    // 每天第一次開啟時先顯示問候與天氣；按下「知道了」後再顯示今日事項。
-    // 當天再次開啟則直接顯示今日事項，不重複打擾問候視窗。
-    const localTodayKey = (() => {
-      const now = new Date();
-      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    })();
-    if (localStorage.getItem('DAILY_GREETING_DATE') !== localTodayKey) {
-      localStorage.setItem('DAILY_GREETING_DATE', localTodayKey);
-      dailyGreetingFlow = true;
-      showGreetingWeather();
-    } else {
-      showTodayTasks();
-    }
+    // 天氣由使用者從功能選單手動開啟；App 啟動時只顯示今日事項。
+    dailyGreetingFlow = false;
+    showTodayTasks();
   </script>
 </body>
 </html>
