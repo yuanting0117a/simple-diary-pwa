@@ -1,0 +1,13 @@
+{
+  "id": "./admin.html",
+  "name": "記事後臺管理",
+  "short_name": "記事後臺",
+  "description": "簡潔記事的雲端提醒管理與監看。",
+  "lang": "zh-TW",
+  "start_url": "./admin.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f9",
+  "theme_color": "#172b4d",
+  "icons": [{"src":"./icons/admin-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
