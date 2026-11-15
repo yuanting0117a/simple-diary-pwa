@@ -39,7 +39,17 @@ button.secondary{background:#e9edf7;color:#30394b}
 <button id="load">查看通知</button>
 <button id="refresh" class="secondary" hidden>重新整理</button>
 <div id="message" role="status"></div>
-<p class="muted">此頁只讀取雲端通知資料，不會修改或刪除使用者資料。</p>
+<p class="muted">可查看雲端通知資料，並向所有已訂閱推播的裝置發送全站公告。</p>
+</section>
+<section id="broadcastPanel" class="panel" hidden>
+  <h2 style="font-size:17px;margin:0 0 10px;">📢 全站公告</h2>
+  <label for="broadcastTitle">通知標題</label>
+  <input id="broadcastTitle" type="text" maxlength="80" placeholder="例如：網站功能更新">
+  <label for="broadcastBody">通知內容</label>
+  <textarea id="broadcastBody" rows="4" maxlength="300" placeholder="輸入要通知所有使用者的內容" style="width:100%;box-sizing:border-box;margin:6px 0 10px;padding:10px 12px;border:1px solid #d8dbe5;border-radius:9px;font:inherit;resize:vertical;"></textarea>
+  <p class="muted" style="margin:0 0 10px;">只會發送給已開啟雲端通知且訂閱仍有效的裝置。發送前會再次確認。</p>
+  <button id="broadcastSend">發送全站通知</button>
+  <div id="broadcastResult" class="muted" role="status" style="margin-top:10px;"></div>
 </section>
 <section id="sortPanel" class="panel toolbar" hidden><label for="sort">通知排序</label><select id="sort"><option value="newest">時間：新到舊</option><option value="oldest">時間：舊到新</option><option value="pending">未送出優先</option><option value="sent">已送出優先</option></select></section>
 <div id="summary"></div>
@@ -47,6 +57,7 @@ button.secondary{background:#e9edf7;color:#30394b}
 </main>
 <script>
 const API = "https://simple-diary-sync.yuanting0117a.workers.dev/api/admin/reminders";
+const BROADCAST_API = "https://simple-diary-sync.yuanting0117a.workers.dev/api/admin/broadcast";
 const passwordInput = document.getElementById("password");
 const message = document.getElementById("message");
 const results = document.getElementById("results");
@@ -55,6 +66,11 @@ const loadButton = document.getElementById("load");
 const refreshButton = document.getElementById("refresh");
 const sortSelect = document.getElementById("sort");
 const sortPanel = document.getElementById("sortPanel");
+const broadcastPanel = document.getElementById("broadcastPanel");
+const broadcastTitle = document.getElementById("broadcastTitle");
+const broadcastBody = document.getElementById("broadcastBody");
+const broadcastSend = document.getElementById("broadcastSend");
+const broadcastResult = document.getElementById("broadcastResult");
 let latestData = null;
 let adminPassword = "";
 function dateText(value){
@@ -107,10 +123,37 @@ async function load(){
     const response=await fetch(API,{headers:{Authorization:"Bearer "+adminPassword}});
     const data=await response.json();
     if(!response.ok){if(response.status===401)adminPassword="";throw new Error(response.status===401?"密碼錯誤。":data.error||"讀取失敗");}
-    latestData=data; render(); sortPanel.hidden=false; message.textContent="更新完成"; refreshButton.hidden=false;
+    latestData=data; render(); sortPanel.hidden=false; broadcastPanel.hidden=false; message.textContent="更新完成"; refreshButton.hidden=false;
   }catch(error){message.textContent=error.message;}
 }
 loadButton.addEventListener("click",load);
+broadcastSend.addEventListener("click", async () => {
+  const title = broadcastTitle.value.trim();
+  const body = broadcastBody.value.trim();
+  if (!title || !body) { broadcastResult.textContent = "請填寫通知標題與內容。"; return; }
+  if (!window.confirm("確定要向所有已訂閱推播的裝置發送這則全站通知嗎？")) return;
+  broadcastSend.disabled = true;
+  broadcastResult.textContent = "正在發送…";
+  try {
+    const response = await fetch(BROADCAST_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminPassword },
+      body: JSON.stringify({ title, body })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 401) adminPassword = "";
+      throw new Error(data.error || "發送失敗（HTTP " + response.status + "）");
+    }
+    broadcastResult.textContent = "發送完成：成功 " + data.sent + " 台；失敗 " + data.failed + " 台；未啟用 " + data.inactive + " 台；失效訂閱 " + data.expired + " 台。";
+    await load();
+  } catch (error) {
+    broadcastResult.textContent = "發送失敗：" + error.message;
+  } finally {
+    broadcastSend.disabled = false;
+  }
+});
+
 refreshButton.addEventListener("click",load);
 sortSelect.addEventListener("change",render);
 passwordInput.addEventListener("keydown",event=>{if(event.key==="Enter")load();});
