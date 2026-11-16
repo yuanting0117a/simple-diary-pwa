@@ -95,6 +95,31 @@ function render(){
     const details=el("details","device-wrap");
     details.append(el("summary","device","裝置 "+device.device+" · "+(device.hasPush?"通知已啟用":"目前未啟用通知")+" · "+device.reminders.length+" 筆"));
     const content=el("div","device-content");
+    if (device.hasPush) {
+      const testRow = el("div","toolbar");
+      const testButton = el("button","secondary","測試此裝置");
+      const testStatus = el("span","muted","");
+      testButton.addEventListener("click", async () => {
+        testButton.disabled = true;
+        testStatus.textContent = "正在測試…";
+        try {
+          const response = await fetch("https://simple-diary-sync.yuanting0117a.workers.dev/api/admin/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminPassword },
+            body: JSON.stringify({ device: device.device })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || ("HTTP " + response.status));
+          testStatus.textContent = "推播服務已接受（HTTP " + result.status + "），請確認手機是否顯示。";
+        } catch (error) {
+          testStatus.textContent = "測試失敗：" + error.message;
+        } finally {
+          testButton.disabled = false;
+        }
+      });
+      testRow.append(testButton, testStatus);
+      content.append(testRow);
+    }
     if(!device.reminders.length) content.append(el("p","muted","目前沒有同步的通知"));
     const reminders=[...device.reminders].sort((a,b)=>{
       const at=Number.isFinite(a.reminderAt)?a.reminderAt:0;
