@@ -189,6 +189,31 @@ async function handleRequest(request, env) {
     return json({ error: "invalid_json_or_request_too_large" }, 400, origin);
   }
 
+  if (url.pathname === "/api/admin/test") {
+    if (!env.ADMIN_PASSWORD) return json({ error: "admin_not_configured" }, 503, origin);
+    if (!safeEqual(getBearer(request), env.ADMIN_PASSWORD)) return json({ error: "admin_auth_failed" }, 401, origin);
+    const devicePrefix = typeof body?.device === "string" ? body.device.trim().toLowerCase() : "";
+    if (!/^[a-f0-9]{8}$/.test(devicePrefix)) return json({ error: "invalid_device" }, 400, origin);
+    const page = await env.REMINDERS.list({ prefix: DEVICE_PREFIX + devicePrefix, limit: 10 });
+    const matches = page.keys.filter(entry => entry.name.slice(DEVICE_PREFIX.length).startsWith(devicePrefix));
+    if (matches.length !== 1) return json({ error: matches.length ? "device_not_unique" : "device_not_found" }, matches.length ? 409 : 404, origin);
+    const storageKey = matches[0].name;
+    const record = await env.REMINDERS.get(storageKey, "json");
+    if (!record || !validSubscription(record.subscription)) return json({ error: "subscription_not_found" }, 404, origin);
+    const keys = await getVapidKeys(env);
+    try {
+      const result = await sendPush(record.subscription, keys, "簡潔記事｜全站推播測試", "這是一則直接推送到此裝置的測試通知。");
+      if (result.status === 404 || result.status === 410) {
+        record.subscription = null;
+        await env.REMINDERS.put(storageKey, JSON.stringify(record));
+      }
+      return json({ ok: result.ok, device: devicePrefix, status: result.status }, result.ok ? 200 : 502, origin);
+    } catch (error) {
+      console.warn("Admin device test push failed:", devicePrefix, error);
+      return json({ error: "push_send_failed", device: devicePrefix }, 502, origin);
+    }
+  }
+
   if (url.pathname === "/api/register") {
     const { deviceId, deviceToken, subscription } = body || {};
     if (!validDeviceId(deviceId) || typeof deviceToken !== "string" || deviceToken.length < 32 || !validSubscription(subscription)) {
