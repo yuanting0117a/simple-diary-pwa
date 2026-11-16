@@ -189,6 +189,47 @@ async function handleRequest(request, env) {
     return json({ error: "invalid_json_or_request_too_large" }, 400, origin);
   }
 
+  if (url.pathname === "/api/admin/broadcast") {
+    if (!env.ADMIN_PASSWORD) return json({ error: "admin_not_configured" }, 503, origin);
+    if (!safeEqual(getBearer(request), env.ADMIN_PASSWORD)) return json({ error: "admin_auth_failed" }, 401, origin);
+    const title = typeof body?.title === "string" ? body.title.trim().slice(0, 80) : "";
+    const message = typeof body?.body === "string" ? body.body.trim().slice(0, 300) : "";
+    if (!title || !message) return json({ error: "invalid_broadcast" }, 400, origin);
+    const keys = await getVapidKeys(env);
+    const stats = { totalDevices: 0, sent: 0, failed: 0, inactive: 0, expired: 0 };
+    let cursor;
+    do {
+      const page = await env.REMINDERS.list({ prefix: DEVICE_PREFIX, cursor, limit: 100 });
+      for (const entry of page.keys) {
+        const record = await env.REMINDERS.get(entry.name, "json");
+        if (!record) continue;
+        stats.totalDevices++;
+        if (!validSubscription(record.subscription)) {
+          stats.inactive++;
+          continue;
+        }
+        try {
+          const result = await sendPush(record.subscription, keys, title, message);
+          if (result.status === 404 || result.status === 410) {
+            record.subscription = null;
+            await env.REMINDERS.put(entry.name, JSON.stringify(record));
+            stats.expired++;
+          } else if (result.ok) {
+            stats.sent++;
+          } else {
+            stats.failed++;
+            console.warn("Broadcast push service response:", result.status);
+          }
+        } catch (error) {
+          stats.failed++;
+          console.warn("Broadcast push failed for device:", entry.name.slice(DEVICE_PREFIX.length, DEVICE_PREFIX.length + 8), error);
+        }
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    return json({ ok: true, ...stats }, 200, origin);
+  }
+
   if (url.pathname === "/api/admin/test") {
     if (!env.ADMIN_PASSWORD) return json({ error: "admin_not_configured" }, 503, origin);
     if (!safeEqual(getBearer(request), env.ADMIN_PASSWORD)) return json({ error: "admin_auth_failed" }, 401, origin);
