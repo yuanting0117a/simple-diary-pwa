@@ -2172,6 +2172,9 @@
       return date;
     }
 
+    // Declare before any startup cloud-sync call; the data is loaded below.
+    let importantDates = [];
+
     function buildCloudReminders() {
       const now = Date.now();
       const result = [];
@@ -4771,7 +4774,7 @@
         return Array.isArray(data) ? data.filter(x => x && typeof x.name === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x.date)) : [];
       } catch (_) { return []; }
     }
-    let importantDates = loadImportantDates();
+    importantDates = loadImportantDates();
     // 載入既有紀念日後立即同步，讓已啟用通知的裝置也能收到新加入的提醒。
     syncCloudReminders().catch(error => console.warn("Important-date reminder sync failed:", error));
     function saveImportantDates() {
