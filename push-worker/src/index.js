@@ -196,18 +196,26 @@ async function handleRequest(request, env) {
     const message = typeof body?.body === "string" ? body.body.trim().slice(0, 300) : "";
     if (!title || !message) return json({ error: "invalid_broadcast" }, 400, origin);
     const keys = await getVapidKeys(env);
-    const stats = { totalDevices: 0, sent: 0, failed: 0, inactive: 0, expired: 0 };
+    const stats = { totalDevices: 0, sent: 0, failed: 0, inactive: 0, expired: 0, duplicatesSkipped: 0 };
+    const sentEndpoints = new Set();
     let cursor;
     do {
       const page = await env.REMINDERS.list({ prefix: DEVICE_PREFIX, cursor, limit: 100 });
       for (const entry of page.keys) {
         const record = await env.REMINDERS.get(entry.name, "json");
         if (!record) continue;
-        stats.totalDevices++;
         if (!validSubscription(record.subscription)) {
           stats.inactive++;
           continue;
         }
+        // 同一推播 endpoint 只發送一次，避免同一支手機因舊紀錄收到重複通知。
+        const endpoint = record.subscription.endpoint;
+        if (sentEndpoints.has(endpoint)) {
+          stats.duplicatesSkipped++;
+          continue;
+        }
+        sentEndpoints.add(endpoint);
+        stats.totalDevices++;
         try {
           const result = await sendPush(record.subscription, keys, title, message);
           if (result.status === 404 || result.status === 410) {
@@ -266,8 +274,31 @@ async function handleRequest(request, env) {
     if (existing && existing.tokenHash !== tokenHash) return json({ error: "device_auth_failed" }, 401, origin);
     const record = existing || { tokenHash, sent: [], reminders: [] };
     record.subscription = subscription;
+
+    // 若同一個瀏覽器推播訂閱曾被存成不同 deviceId，合併回目前這筆紀錄。
+    // 只以完全相同的 endpoint 判定，不依賴手機型號或 User-Agent。
+    const duplicateKeys = [];
+    let scanCursor;
+    do {
+      const page = await env.REMINDERS.list({ prefix: DEVICE_PREFIX, cursor: scanCursor, limit: 100 });
+      for (const entry of page.keys) {
+        if (entry.name === key) continue;
+        const other = await env.REMINDERS.get(entry.name, "json");
+        if (!other || other.subscription?.endpoint !== subscription.endpoint) continue;
+        const mergedReminders = new Map();
+        for (const item of [...(Array.isArray(other.reminders) ? other.reminders : []), ...(Array.isArray(record.reminders) ? record.reminders : [])]) {
+          if (item && typeof item.id === "string") mergedReminders.set(item.id, item);
+        }
+        record.reminders = [...mergedReminders.values()].slice(-300);
+        record.sent = [...new Set([...(Array.isArray(other.sent) ? other.sent : []), ...(Array.isArray(record.sent) ? record.sent : [])])].slice(-500);
+        duplicateKeys.push(entry.name);
+      }
+      scanCursor = page.list_complete ? undefined : page.cursor;
+    } while (scanCursor);
+
     await env.REMINDERS.put(key, JSON.stringify(record));
-    return json({ ok: true }, 200, origin);
+    for (const duplicateKey of duplicateKeys) await env.REMINDERS.delete(duplicateKey);
+    return json({ ok: true, mergedDuplicates: duplicateKeys.length }, 200, origin);
   }
 
   if (url.pathname === "/api/sync") {
