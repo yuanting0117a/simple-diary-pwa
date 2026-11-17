@@ -58,6 +58,7 @@ button.secondary{background:#e9edf7;color:#30394b}
 <script>
 const API = "https://simple-diary-sync.yuanting0117a.workers.dev/api/admin/reminders";
 const BROADCAST_API = "https://simple-diary-sync.yuanting0117a.workers.dev/api/admin/broadcast";
+const REMOVE_DEVICE_API = "https://simple-diary-sync.yuanting0117a.workers.dev/api/admin/remove-device";
 const passwordInput = document.getElementById("password");
 const message = document.getElementById("message");
 const results = document.getElementById("results");
@@ -95,6 +96,31 @@ function render(){
     const details=el("details","device-wrap");
     details.append(el("summary","device","裝置 "+device.device+" · "+(device.hasPush?"通知已啟用":"目前未啟用通知")+" · "+device.reminders.length+" 筆"));
     const content=el("div","device-content");
+    const manageRow = el("div","toolbar");
+    const removeButton = el("button","secondary","刪除此裝置紀錄");
+    const removeStatus = el("span","muted","");
+    removeButton.addEventListener("click", async () => {
+      const count = device.reminders.length;
+      const warning = count ? "\\n此裝置有 " + count + " 筆通知資料，刪除後無法復原。" : "\\n刪除後無法復原。";
+      if (!window.confirm("確定刪除裝置 " + device.device + " 的後台紀錄？" + warning)) return;
+      removeButton.disabled = true;
+      removeStatus.textContent = "正在刪除…";
+      try {
+        const response = await fetch(REMOVE_DEVICE_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminPassword },
+          body: JSON.stringify({ deviceId: device.deviceId })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "刪除失敗");
+        await load();
+      } catch (error) {
+        removeStatus.textContent = "刪除失敗：" + error.message;
+        removeButton.disabled = false;
+      }
+    });
+    manageRow.append(removeButton, removeStatus);
+    content.append(manageRow);
     if (device.hasPush) {
       const testRow = el("div","toolbar");
       const testButton = el("button","secondary","測試此裝置");
