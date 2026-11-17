@@ -2372,7 +2372,7 @@
           if (subscription) await subscription.unsubscribe();
         }
         localStorage.removeItem(PUSH_ENABLED_KEY);
-        localStorage.removeItem(PUSH_DEVICE_KEY);
+        // 保留穩定的裝置 ID 與 token；重新啟用通知時沿用同一筆後端裝置紀錄。
         updateCloudPushButton(false);
         const testButton = document.getElementById('cloud-push-test');
         if (testButton) testButton.disabled = true;
@@ -4053,6 +4053,7 @@
 
     // 手動雲端備份：主機沿用本機配對碼；檢視裝置輸入配對碼下載後交給既有唯讀匯入流程。
     const CLOUD_BACKUP_CODE_KEY = 'SIMPLE_DIARY_CLOUD_BACKUP_CODE_V1';
+    const CLOUD_BACKUP_LINKED_CODE_KEY = 'SIMPLE_DIARY_CLOUD_BACKUP_LINKED_CODE_V1';
     const cloudBackupStatus = message => {
       const el = document.getElementById('cloud-backup-status');
       if (el) el.textContent = message;
@@ -4094,9 +4095,12 @@
       }
     });
     document.getElementById('cloud-backup-download').addEventListener('click', async () => {
-      const entered = prompt('請輸入主機提供的 8 碼配對碼：');
-      if (entered === null) return;
-      const code = entered.trim().toUpperCase();
+      let code = (localStorage.getItem(CLOUD_BACKUP_LINKED_CODE_KEY) || '').trim().toUpperCase();
+      if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) {
+        const entered = prompt('首次連結此裝置，請輸入主機提供的 8 碼配對碼：');
+        if (entered === null) return;
+        code = entered.trim().toUpperCase();
+      }
       if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) {
         alert('配對碼格式不正確，請確認是 8 碼英數字。');
         return;
@@ -4108,6 +4112,8 @@
         const response = await fetch(PUSH_API + '/api/backup/download?code=' + encodeURIComponent(code));
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.backup) throw new Error(result.error || '找不到備份，請確認配對碼或請主機重新上傳。');
+        // 只有雲端確認配對碼有效並成功取得備份後，才記住此裝置的配對碼。
+        localStorage.setItem(CLOUD_BACKUP_LINKED_CODE_KEY, code);
         const backup = result.backup;
         if (!backup || backup.app !== '簡潔記事' || backup.backupFormat !== 'simple-diary-full' ||
             !Array.isArray(backup.data) || !Array.isArray(backup.importantDates) ||
@@ -4123,6 +4129,9 @@
         input.dispatchEvent(new Event('change', { bubbles: true }));
         cloudBackupStatus('已下載備份，請在確認視窗中確認匯入。');
       } catch (error) {
+        if (error.message.includes('backup_not_found') || error.message.includes('找不到備份')) {
+          localStorage.removeItem(CLOUD_BACKUP_LINKED_CODE_KEY);
+        }
         cloudBackupStatus('下載失敗：' + error.message);
         alert('雲端備份下載失敗：' + error.message);
       } finally {
