@@ -142,6 +142,7 @@ async function handleRequest(request, env) {
         }));
         devices.push({
           device: entry.name.slice(DEVICE_PREFIX.length, DEVICE_PREFIX.length + 8),
+          deviceId: entry.name.slice(DEVICE_PREFIX.length),
           hasPush: validSubscription(record.subscription),
           reminders
         });
@@ -187,6 +188,18 @@ async function handleRequest(request, env) {
     body = await readBody(request);
   } catch {
     return json({ error: "invalid_json_or_request_too_large" }, 400, origin);
+  }
+
+  if (url.pathname === "/api/admin/remove-device") {
+    if (!env.ADMIN_PASSWORD) return json({ error: "admin_not_configured" }, 503, origin);
+    if (!safeEqual(getBearer(request), env.ADMIN_PASSWORD)) return json({ error: "admin_auth_failed" }, 401, origin);
+    const deviceId = typeof body?.deviceId === "string" ? body.deviceId.trim() : "";
+    if (!validDeviceId(deviceId)) return json({ error: "invalid_device" }, 400, origin);
+    const key = DEVICE_PREFIX + deviceId;
+    const record = await env.REMINDERS.get(key, "json");
+    if (!record) return json({ error: "device_not_found" }, 404, origin);
+    await env.REMINDERS.delete(key);
+    return json({ ok: true, removed: deviceId.slice(0, 8) }, 200, origin);
   }
 
   if (url.pathname === "/api/admin/broadcast") {
