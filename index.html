@@ -1667,12 +1667,19 @@
       catch (_) { quickNoteText.value = ''; }
     }
     function saveQuickNote() {
+      if (readOnlyMode) return;
       try {
         localStorage.setItem(QUICK_NOTE_KEY, quickNoteText.value);
         quickNoteStatus.textContent = '已自動儲存';
       } catch (_) {
         quickNoteStatus.textContent = '儲存失敗，請檢查裝置儲存空間';
       }
+    }
+    function setQuickNote(value) {
+      const note = typeof value === 'string' ? value : '';
+      localStorage.setItem(QUICK_NOTE_KEY, note);
+      quickNoteText.value = note;
+      quickNoteStatus.textContent = readOnlyMode ? '唯讀檢視' : '已自動儲存';
     }
     document.getElementById('quick-note-open').addEventListener('click', () => {
       loadQuickNote();
@@ -1684,7 +1691,7 @@
       saveQuickNote();
     });
     document.getElementById('quick-note-clear').addEventListener('click', () => {
-      if (!quickNoteText.value) return;
+      if (readOnlyMode || !quickNoteText.value) return;
       if (!window.confirm('確定清空隨手寫內容？')) return;
       quickNoteText.value = '';
       saveQuickNote();
@@ -4016,6 +4023,12 @@
         const el = document.getElementById(id);
         if (el) el.style.display = readOnlyMode ? 'none' : '';
       });
+      const quickNoteInput = document.getElementById('quick-note-text');
+      const quickNoteClear = document.getElementById('quick-note-clear');
+      const quickNoteStatusEl = document.getElementById('quick-note-status');
+      if (quickNoteInput) quickNoteInput.readOnly = readOnlyMode;
+      if (quickNoteClear) quickNoteClear.disabled = readOnlyMode;
+      if (quickNoteStatusEl && readOnlyMode) quickNoteStatusEl.textContent = '唯讀檢視｜此裝置不能修改筆記';
       if (readOnlyMode) {
         const pushButton = document.getElementById('cloud-push-enable');
         const testButton = document.getElementById('cloud-push-test');
@@ -4039,7 +4052,8 @@
         courses: courses,
         coursePeriods: coursePeriods,
         defaultEmoji: userDefaultEmoji,
-        emojiPresets: emojiPresetList
+        emojiPresets: emojiPresetList,
+        quickNote: localStorage.getItem(QUICK_NOTE_KEY) || ''
       };
     }
 
@@ -4247,6 +4261,7 @@
         const nextEmojiPresets = Array.from(new Set(parsed.emojiPresets.filter(x => typeof x === 'string'))).slice(0,15);
         const nextDefaultEmoji = typeof parsed.defaultEmoji === 'string' && parsed.defaultEmoji.trim()
           ? parsed.defaultEmoji : '📌';
+        const nextQuickNote = typeof parsed.quickNote === 'string' ? parsed.quickNote : '';
         if (!confirm('這會完整取代這台裝置目前的記事、紀念日及 Emoji 設定，並切換成唯讀檢視模式。確定繼續？')) return;
 
         // 先建立新資料，再一次寫入；唯讀檢視裝置不沿用通知設定、裝置憑證或推播訂閱，定位偏好仍保留。
@@ -4256,6 +4271,8 @@
         localStorage.setItem(COURSE_PERIODS_KEY, JSON.stringify(nextPeriods));
         localStorage.setItem('DEFAULT_EMOJI', nextDefaultEmoji);
         localStorage.setItem('EMOJI_PRESETS', JSON.stringify(nextEmojiPresets));
+        localStorage.setItem(QUICK_NOTE_KEY, nextQuickNote);
+        quickNoteText.value = nextQuickNote;
         db = nextDB;
         importantDates = nextDates;
         courses = nextCourses;
@@ -4297,6 +4314,10 @@
         const choice = prompt('選擇匯入方式：\n輸入 1：合併資料（保留現有記事、略過重複項目）\n輸入 2：取代資料（以備份內容完整取代）\n\n請輸入 1 或 2：', '1');
         if (choice !== '1' && choice !== '2') return;
         if (choice === '2' && !confirm('確定要取代這台裝置目前的全部記事嗎？建議先匯出目前資料。')) return;
+        // 新版備份包含隨手寫；舊版備份沒有此欄位時保留本機筆記。
+        if (!Array.isArray(parsed) && parsed && typeof parsed.quickNote === 'string') {
+          setQuickNote(parsed.quickNote);
+        }
 
         if (choice === '1') {
           const duplicateKey = item => [item.text, item.date || '', item.time || '', item.endTime || '', item.endDate || '', item.taskType || ''].join('|');
