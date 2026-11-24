@@ -2916,7 +2916,7 @@
       const corner=document.createElement('div');corner.className='course-week-head';corner.textContent='時間';grid.appendChild(corner);
       days.forEach(d=>{const h=document.createElement('div');h.className='course-week-head';h.textContent=d;grid.appendChild(h)});
       if(!marks.length){const e=document.createElement('div');e.style.cssText='grid-column:1/-1;text-align:center;color:var(--text-sub);padding:24px 8px';e.textContent='尚未設定時間分隔線，請到「管理課表」設定。';grid.appendChild(e);return}
-      const rowTemplate=marks.slice(0,-1).map((t,i)=>{const label=coursePeriodDisplayLabel(t,marks[i+1]);return label==='午餐'?'12px':label?'minmax(62px,auto)':'8px'}).concat('0px').join(' ');
+      const rowTemplate=marks.slice(0,-1).map((t,i)=>{const label=coursePeriodDisplayLabel(t,marks[i+1]);return label==='午餐'?'12px':label?'minmax(62px,auto)':'8px'}).concat('26px').join(' ');
       const axis=document.createElement('div');axis.className='course-axis-column';axis.style.gridTemplateRows=rowTemplate;
       marks.forEach((t,i)=>{const l=document.createElement('div');l.className='course-time-label';l.textContent=i<marks.length-1?coursePeriodDisplayLabel(t,marks[i+1]):'';axis.appendChild(l)});
       grid.appendChild(axis);
