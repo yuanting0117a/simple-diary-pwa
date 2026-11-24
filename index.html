@@ -141,6 +141,8 @@
     #course-selection-grid .course-break-cell{font-size:.62rem;color:var(--text-sub);background:#f3f4f6!important}
     #course-week-grid .course-hidden-gap{background:transparent!important;border-color:transparent!important;box-shadow:none!important;padding:0;min-height:0;height:100%}
     .course-class-chip{grid-column:1;z-index:1;min-height:0;height:100%;box-sizing:border-box;justify-content:center}
+    .course-now-indicator{position:absolute;left:31%;width:38%;height:0;border-top:2px solid #ef4444;z-index:6;pointer-events:none;filter:drop-shadow(0 0 1px #fff)}
+    .course-now-indicator::after{content:'';position:absolute;width:7px;height:7px;border-radius:50%;background:#ef4444;left:50%;top:-4.5px;transform:translateX(-50%);border:1px solid #fff;box-shadow:0 0 0 1px #ef4444}
     .course-break-cell{background:#fafafa!important;color:var(--text-sub);font-size:.66rem;display:flex;align-items:center;justify-content:center}
     .course-lunch-cell{background:#fff7e8!important;color:#9a6b22;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;border-color:#f1dfbd}
     .course-lunch-label{color:#9a6b22}
@@ -2935,6 +2937,33 @@
           const name=document.createElement('span');name.textContent=c.name;top.append(dot,name);chip.appendChild(top);
           const b=document.createElement('button');b.type='button';b.className='course-status-btn';b.disabled=st.locked||!st.reviewDate;b.setAttribute('aria-label',c.name+'：'+st.label);b.title=st.label;const statusDot=document.createElement('i');statusDot.className='course-light';statusDot.style.background=st.color;const statusText=document.createElement('span');statusText.textContent=st.label;b.append(statusDot,statusText);b.style.borderColor=st.color;b.style.background=st.label==='已複習'?'#f0fdf4':st.label==='未複習'?'#fef2f2':st.label==='上課中'?'#fefce8':'#f3f4f6';b.addEventListener('click',()=>openCourseReview(c,st.reviewDate));chip.style.borderColor=st.color;chip.appendChild(b);col.appendChild(chip);
         });
+        const now=new Date();
+        if(now.getDay()===weekday){
+          col.style.position='relative';
+          const cells=[...col.querySelectorAll(':scope > .course-week-cell')];
+          if(cells.length){
+            const toMinutes=t=>Number(t.slice(0,2))*60+Number(t.slice(2));
+            const current=now.getHours()*60+now.getMinutes(),first=toMinutes(marks[0]),last=toMinutes(marks[marks.length-1]);
+            let top=0;
+            if(current<=first){
+              top=cells[0].getBoundingClientRect().top-col.getBoundingClientRect().top;
+            }else if(current>=last){
+              const finalCell=cells[Math.max(0,marks.length-2)];
+              top=finalCell.getBoundingClientRect().bottom-col.getBoundingClientRect().top;
+            }else{
+              let interval=0;
+              while(interval<marks.length-1&&current>toMinutes(marks[interval+1]))interval++;
+              const cell=cells[interval],rect=cell.getBoundingClientRect();
+              const ratio=(current-toMinutes(marks[interval]))/(toMinutes(marks[interval+1])-toMinutes(marks[interval]));
+              top=rect.top-col.getBoundingClientRect().top+rect.height*ratio;
+            }
+            const indicator=document.createElement('div');
+            indicator.className='course-now-indicator';
+            indicator.style.top=top+'px';
+            indicator.setAttribute('aria-label','現在時間 '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'));
+            col.appendChild(indicator);
+          }
+        }
         grid.appendChild(col);
       }
     }
