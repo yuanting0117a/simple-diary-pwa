@@ -150,7 +150,7 @@
     .course-class-chip{border:1px solid #dce7f5;background:#f5f9ff;border-radius:7px;padding:5px 3px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:4px}
     .course-class-top{display:flex;align-items:center;gap:5px;font-weight:700;min-width:0}
     .course-light{width:10px;height:10px;min-width:10px;border-radius:50%;display:inline-block}
-    .course-status-btn{width:100%;padding:4px 2px;border:1px solid var(--border-color);border-radius:6px;background:#fff;font-size:.66rem;cursor:pointer}
+    .course-status-btn{width:100%;min-height:30px;padding:5px 4px;border:1px solid var(--border-color);border-radius:7px;background:#fff;font-size:.68rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
     .course-status-btn:disabled{opacity:.55;cursor:not-allowed}
     .course-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
     .course-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:.72rem;color:var(--text-sub);margin-top:10px}
@@ -2864,25 +2864,6 @@
       const done=item&&item.courseReview.status==='done';
       return{color:done?'#22c55e':'#ef4444',label:done?'已複習':'未複習',item,locked:false};
     }
-    function renderCourseView(){
-      syncCourseReviewItems();const grid=document.getElementById('course-week-grid');if(!grid)return;grid.innerHTML='';
-      const days=['一','二','三','四','五','六','日'],times=[...new Set(courses.map(c=>c.startTime))].sort();
-      const corner=document.createElement('div');corner.className='course-week-head';corner.textContent='時間';grid.appendChild(corner);
-      days.forEach(d=>{const x=document.createElement('div');x.className='course-week-head';x.textContent=d;grid.appendChild(x)});
-      if(!times.length){const e=document.createElement('div');e.style.cssText='grid-column:1/-1;text-align:center;color:var(--text-sub);padding:24px 8px';e.textContent='尚未建立課表，點「管理課表」開始設定。';grid.appendChild(e);return}
-      times.forEach(t=>{
-        const l=document.createElement('div');l.className='course-time-label';l.textContent=t.slice(0,2)+':'+t.slice(2);grid.appendChild(l);
-        for(let di=0;di<7;di++){
-          const weekday=(di+1)%7,cell=document.createElement('div');cell.className='course-week-cell';
-          courses.filter(c=>Number(c.weekday)===weekday&&c.startTime===t).forEach(c=>{
-            const st=courseState(c),chip=document.createElement('div');chip.className='course-class-chip';
-            const top=document.createElement('div');top.className='course-class-top';const dot=document.createElement('i');dot.className='course-light';dot.style.background=st.color;
-            const name=document.createElement('span');name.textContent=c.name;top.append(dot,name);chip.appendChild(top);
-            const b=document.createElement('button');b.type='button';b.className='course-status-btn';b.textContent=st.label==='上課中'?'上課中':st.label==='不需複習'?'已關閉':'狀態';b.disabled=st.locked||!st.item;b.addEventListener('click',()=>openCourseReview(st.item,c));chip.appendChild(b);cell.appendChild(chip);
-          });grid.appendChild(cell);
-        }
-      });
-    }
     function openCourseReview(item,c){if(!item||!item.courseReview||courseState(c).label==='上課中')return;activeCourseReviewKey=item.courseReviewKey;document.getElementById('course-review-title').textContent=c.name+'｜複習狀態';document.getElementById('course-review-overlay').classList.add('show')}
     function openCourseReviewByKey(key){const item=db.find(x=>x.courseReviewKey===decodeURIComponent(key||''));if(!item)return;const c=courses.find(x=>String(x.id)===String(item.courseReview.courseId));if(c)openCourseReview(item,c)}
     function setCourseReviewStatus(status){if(readOnlyMode)return;const item=db.find(x=>x.courseReviewKey===activeCourseReviewKey);if(!item)return;item.courseReview.status=status;item.completed=status==='done';localStorage.setItem('LOCAL_DIARY',JSON.stringify(db));document.getElementById('course-review-overlay').classList.remove('show');activeCourseReviewKey=null;render();if(currentView==='course')renderCourseView();syncCloudReminders().catch(e=>console.warn(e))}
@@ -2913,7 +2894,7 @@
           const st=courseState(c),chip=document.createElement('div');chip.className='course-class-chip';chip.style.gridRow=(start+1)+' / span '+(end-start);
           const top=document.createElement('div');top.className='course-class-top';const dot=document.createElement('i');dot.className='course-light';dot.style.background=st.color;
           const name=document.createElement('span');name.textContent=c.name;top.append(dot,name);chip.appendChild(top);
-          const b=document.createElement('button');b.type='button';b.className='course-status-btn';b.textContent=st.label==='上課中'?'上課中':st.label==='不需複習'?'已關閉':'狀態';b.disabled=st.locked||!st.item;b.addEventListener('click',()=>openCourseReview(st.item,c));chip.appendChild(b);col.appendChild(chip);
+          const b=document.createElement('button');b.type='button';b.className='course-status-btn';b.disabled=st.locked||!st.item;b.setAttribute('aria-label',c.name+'：'+st.label);b.title=st.label;const statusDot=document.createElement('i');statusDot.className='course-light';statusDot.style.background=st.color;const statusText=document.createElement('span');statusText.textContent=st.label;b.append(statusDot,statusText);b.style.borderColor=st.color;b.style.background=st.label==='已複習'?'#f0fdf4':st.label==='未複習'?'#fef2f2':st.label==='上課中'?'#fefce8':'#f3f4f6';b.addEventListener('click',()=>openCourseReview(st.item,c));chip.style.borderColor=st.color;chip.appendChild(b);col.appendChild(chip);
         });
         grid.appendChild(col);
       }
