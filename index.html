@@ -2937,6 +2937,7 @@
           const name=document.createElement('span');name.textContent=c.name;top.append(dot,name);chip.appendChild(top);
           const b=document.createElement('button');b.type='button';b.className='course-status-btn';b.disabled=st.locked||!st.reviewDate;b.setAttribute('aria-label',c.name+'：'+st.label);b.title=st.label;const statusDot=document.createElement('i');statusDot.className='course-light';statusDot.style.background=st.color;const statusText=document.createElement('span');statusText.textContent=st.label;b.append(statusDot,statusText);b.style.borderColor=st.color;b.style.background=st.label==='已複習'?'#f0fdf4':st.label==='未複習'?'#fef2f2':st.label==='上課中'?'#fefce8':'#f3f4f6';b.addEventListener('click',()=>openCourseReview(c,st.reviewDate));chip.style.borderColor=st.color;chip.appendChild(b);col.appendChild(chip);
         });
+        grid.appendChild(col);
         const now=new Date();
         if(now.getDay()===weekday){
           col.style.position='relative';
@@ -2964,7 +2965,6 @@
             col.appendChild(indicator);
           }
         }
-        grid.appendChild(col);
       }
     }
     function renderCourseSelection(){
