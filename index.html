@@ -1597,11 +1597,12 @@
     db=db.filter(item=>{
       if(!item.courseReview)return true;
       const c=courses.find(x=>String(x.id)===String(item.courseReview.courseId));
-      if(!c)return true;
-      const date=item.courseReview.occurrenceDate;
-      if(date){
-        const status=item.completed||item.courseReview.status==='done'?'done':'pending';
-        if(!c.reviewRecords[date]||status==='done')c.reviewRecords[date]={status};
+      if(c){
+        const date=item.courseReview.occurrenceDate;
+        if(date){
+          const status=item.completed||item.courseReview.status==='done'?'done':'pending';
+          if(!c.reviewRecords[date]||status==='done')c.reviewRecords[date]={status};
+        }
       }
       migratedReviews.push(item);
       return false;
@@ -2980,7 +2981,7 @@
         const actions=document.createElement('div');actions.className='course-manage-actions';
         const setting=document.createElement('label');setting.style.cssText='display:flex;align-items:center;gap:5px;font-size:.76rem;white-space:nowrap';
         const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=c.reviewEnabled!==false;
-        checkbox.addEventListener('change',()=>{c.reviewEnabled=checkbox.checked;saveCourses();syncCourseReviewItems();renderCourseManager();renderCourseView()});
+        checkbox.addEventListener('change',()=>{c.reviewEnabled=checkbox.checked;if(checkbox.checked)c.createdAt=new Date().toISOString();saveCourses();syncCourseReviewItems();renderCourseManager();renderCourseView()});
         setting.append(checkbox,document.createTextNode('納入課堂複習'));
         const del=document.createElement('button');del.className='btn btn-danger';del.textContent='刪除';
         del.onclick=()=>{if(!confirm('刪除這個課程？既有複習紀錄將隨課程一併移除。'))return;courses=courses.filter(x=>x.id!==c.id);saveCourses();renderCourseManager();renderCourseSelection();renderCourseView()};
