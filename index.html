@@ -2770,7 +2770,14 @@
 
     document.getElementById('tab-course').addEventListener('click', e => {
       e.preventDefault();
-      alert('課程功能維修中，預計 2027 年 1 月重新推出。');
+      currentView = 'course'; switchTab('tab-course');
+      openInputModalBtn.style.display = 'none';
+      listView.style.display = 'none'; timelineView.style.display = 'none';
+      calendarContainer.style.display = 'none';
+      document.getElementById('course-view').style.display = 'block';
+      todoBox.style.display = 'none';
+      document.getElementById('overdue-box').style.display = 'none';
+      renderCourseView();
     });
     document.getElementById('tab-timeline').addEventListener('click', (e) => {
       e.preventDefault();
@@ -2828,6 +2835,7 @@
     function courseMMDD(d){return taskDateKeyFromDate(d)}
     function courseAt(iso,hhmm){const [y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d,Number(hhmm.slice(0,2)),Number(hhmm.slice(2)))}
     function syncCourseReviewItems(){
+      if(readOnlyMode)return false;
       const now=new Date();let changed=false;
       courses.filter(c=>c.enabled!==false).forEach(c=>{
         const createdAt=new Date(c.createdAt||now),cursor=new Date(createdAt);cursor.setHours(0,0,0,0);let guard=0;
@@ -2877,7 +2885,7 @@
     }
     function openCourseReview(item,c){if(!item||!item.courseReview||courseState(c).label==='上課中')return;activeCourseReviewKey=item.courseReviewKey;document.getElementById('course-review-title').textContent=c.name+'｜複習狀態';document.getElementById('course-review-overlay').classList.add('show')}
     function openCourseReviewByKey(key){const item=db.find(x=>x.courseReviewKey===decodeURIComponent(key||''));if(!item)return;const c=courses.find(x=>String(x.id)===String(item.courseReview.courseId));if(c)openCourseReview(item,c)}
-    function setCourseReviewStatus(status){const item=db.find(x=>x.courseReviewKey===activeCourseReviewKey);if(!item)return;item.courseReview.status=status;item.completed=status==='done';localStorage.setItem('LOCAL_DIARY',JSON.stringify(db));document.getElementById('course-review-overlay').classList.remove('show');activeCourseReviewKey=null;render();if(currentView==='course')renderCourseView();syncCloudReminders().catch(e=>console.warn(e))}
+    function setCourseReviewStatus(status){if(readOnlyMode)return;const item=db.find(x=>x.courseReviewKey===activeCourseReviewKey);if(!item)return;item.courseReview.status=status;item.completed=status==='done';localStorage.setItem('LOCAL_DIARY',JSON.stringify(db));document.getElementById('course-review-overlay').classList.remove('show');activeCourseReviewKey=null;render();if(currentView==='course')renderCourseView();syncCloudReminders().catch(e=>console.warn(e))}
     function resetCourseForm(){document.getElementById('course-name-input').value='';document.getElementById('course-enabled-input').checked=true;courseSelectedCells.clear();renderCourseSelection()}
     function renderCourseView(){
       syncCourseReviewItems();
@@ -2939,7 +2947,7 @@
       renderCourseSelection();
     }
     function renderCourseManager(){const list=document.getElementById('course-manage-list');list.innerHTML='';courses.forEach(c=>{const row=document.createElement('div');row.className='course-manage-row';const info=document.createElement('div');info.className='course-manage-info';const title=document.createElement('strong');title.textContent=c.name;const meta=document.createElement('div');meta.style.cssText='font-size:.72rem;color:var(--text-sub);margin-top:3px';meta.textContent='星期'+['日','一','二','三','四','五','六'][c.weekday]+' · '+c.startTime.slice(0,2)+':'+c.startTime.slice(2)+'–'+c.endTime.slice(0,2)+':'+c.endTime.slice(2);info.append(title,meta);const actions=document.createElement('div');actions.className='course-manage-actions';const toggle=document.createElement('button');toggle.className='btn';toggle.textContent=c.enabled===false?'已關閉':'已啟用';toggle.onclick=()=>{c.enabled=c.enabled===false;if(c.enabled)c.createdAt=new Date().toISOString();saveCourses();renderCourseManager();renderCourseView()};const del=document.createElement('button');del.className='btn btn-danger';del.textContent='刪除';del.onclick=()=>{if(!confirm('刪除這個上課格？既有課後事項會保留。'))return;courses=courses.filter(x=>x.id!==c.id);saveCourses();renderCourseManager();renderCourseView()};actions.append(toggle,del);row.append(info,actions);list.appendChild(row)})}
-    function openCourseManager(){renderCoursePeriods();renderCourseManager();resetCourseForm();document.getElementById('course-manage-overlay').classList.add('show')}
+    function openCourseManager(){if(readOnlyMode)return;renderCoursePeriods();renderCourseManager();resetCourseForm();document.getElementById('course-manage-overlay').classList.add('show')}
     document.getElementById('manage-courses-btn').addEventListener('click',openCourseManager);
     document.getElementById('course-add-period').addEventListener('click',()=>{const marks=courseTimeMarks(),last=marks.slice(-1)[0]||'0800',mins=Number(last.slice(0,2))*60+Number(last.slice(2))+10;if(mins>=1440){alert('已到當日最後時間，無法再新增。');return}marks.push(String(Math.floor(mins/60)).padStart(2,'0')+String(mins%60).padStart(2,'0'));rebuildCoursePeriods(marks);renderCoursePeriods();renderCourseView()});
     document.getElementById('course-save-btn').addEventListener('click',()=>{
@@ -4029,6 +4037,10 @@
       if (quickNoteInput) quickNoteInput.readOnly = readOnlyMode;
       if (quickNoteClear) quickNoteClear.disabled = readOnlyMode;
       if (quickNoteStatusEl && readOnlyMode) quickNoteStatusEl.textContent = '唯讀檢視｜此裝置不能修改筆記';
+      ['manage-courses-btn','course-save-btn','course-add-period','course-review-done','course-review-pending'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = readOnlyMode;
+      });
       if (readOnlyMode) {
         const pushButton = document.getElementById('cloud-push-enable');
         const testButton = document.getElementById('cloud-push-test');
